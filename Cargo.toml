@@ -18,10 +18,11 @@ pollster = "0.2"
 bytemuck = { version = "1.4", features = [ "derive" ] }
 anyhow = "1.0"
 cgmath = "0.18"
-noise = "0.7.0"
+noise = "0.8.2"
 rand = "0.8.5"
 colored = "2.0.0"
 mockall = "*"
+bitvec = "1.0.1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console_error_panic_hook = "0.1.6"

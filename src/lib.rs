@@ -15,8 +15,8 @@ mod camera;
 mod texture;
 mod model;
 mod block;
-mod chunk;
-mod world;
+//mod chunk;
+//mod world;
 use camera::*;
 
 // lib.rs
@@ -24,14 +24,14 @@ use camera::*;
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Vertex {
     position: [f32; 3],
-    color: [f32; 3],
+    //color: [f32; 3],
 }
 
 impl Vertex {
     pub const fn new(x: f32, y: f32, z:f32, r: f32, g: f32, b: f32) -> Self{
         Self {
             position: [x, y, z],
-            color: [r, g, b],
+            //color: [r, g, b],
         }
     }
 
@@ -46,11 +46,11 @@ impl Vertex {
                     shader_location: 0,
                     format: wgpu::VertexFormat::Float32x3,
                 },
-                wgpu::VertexAttribute {
+                /*wgpu::VertexAttribute {
                     offset: mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
                     shader_location: 1,
                     format: wgpu::VertexFormat::Float32x3, // NEW!
-                },
+                },*/
             ],
         }
     }
@@ -69,15 +69,18 @@ const INDICES: &[u16] = &[0, 1, 4, 1, 2, 4, 2, 3, 4];*/
 #[derive(Clone)]
 struct Instance {
     position: cgmath::Vector3<f32>,
-    rotation: cgmath::Quaternion<f32>,
+    //rotation: cgmath::Quaternion<f32>,
+    color: [f32; 3],
 }
 
 impl Instance {
     fn to_raw(&self) -> InstanceRaw {
         InstanceRaw {
-            model: (cgmath::Matrix4::from_translation(self.position)
+            /*model: (cgmath::Matrix4::from_translation(self.position)
                 * cgmath::Matrix4::from(self.rotation))
-            .into(),
+            .into(),*/
+            pos: self.position.into(),
+            color: self.color,
         }
     }
 }
@@ -92,7 +95,9 @@ impl Instance {
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 struct InstanceRaw {
-    model: [[f32; 4]; 4],
+    //model: [[f32; 4]; 4],
+    pos: [f32; 3],
+    color: [f32; 3],
 }
 
 impl InstanceRaw {
@@ -110,12 +115,12 @@ impl InstanceRaw {
                     // While our vertex shader only uses locations 0, and 1 now, in later tutorials we'll
                     // be using 2, 3, and 4, for Vertex. We'll start at slot 5 not conflict with them later
                     shader_location: 5,
-                    format: wgpu::VertexFormat::Float32x4,
+                    format: wgpu::VertexFormat::Float32x3,
                 },
                 // A mat4 takes up 4 vertex slots as it is technically 4 vec4s. We need to define a slot
                 // for each vec4. We'll have to reassemble the mat4 in
                 // the shader.
-                wgpu::VertexAttribute {
+                /*wgpu::VertexAttribute {
                     offset: mem::size_of::<[f32; 4]>() as wgpu::BufferAddress,
                     shader_location: 6,
                     format: wgpu::VertexFormat::Float32x4,
@@ -129,7 +134,12 @@ impl InstanceRaw {
                     offset: mem::size_of::<[f32; 12]>() as wgpu::BufferAddress,
                     shader_location: 8,
                     format: wgpu::VertexFormat::Float32x4,
-                },
+                },*/
+                wgpu::VertexAttribute {
+                    offset: mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
+                    shader_location: 6,
+                    format: wgpu::VertexFormat::Float32x3,
+                }
             ],
         }
     }
@@ -143,7 +153,9 @@ struct State {
     config: wgpu::SurfaceConfiguration,
     size: winit::dpi::PhysicalSize<u32>,
     render_pipeline: wgpu::RenderPipeline,
-    world: world::World,
+    //world: world::World,
+    blocks: Vec<model::Model>,
+    block_ind: block::World,
     diffuse_bind_group: wgpu::BindGroup,
     diffuse_texture: texture::Texture,
     camera: Camera,
@@ -298,7 +310,7 @@ impl State {
                 bind_group_layouts: &[&texture_bind_group_layout, &camera_bind_group_layout],
                 push_constant_ranges: &[],
             });
-        let instances = [Instance { position: cgmath::Vector3::new(0.0, 0.0, 0.0), rotation: cgmath::Quaternion::new(1.0, 0.0, 0.0, 0.0)}].to_vec();
+        let instances = [Instance { position: cgmath::Vector3::new(0.0, 0.0, 0.0), /*rotation: cgmath::Quaternion::new(1.0, 0.0, 0.0, 0.0), */color: [1.0,1.0,1.0]}].to_vec();
         let instance_data = instances.iter().map(Instance::to_raw).collect::<Vec<_>>();
         let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Instance Buffer"),
@@ -369,11 +381,13 @@ impl State {
             block.set_mesh(&blocks, &device);
             blocks[i as usize] = block;
         }*/
-        let mut world = world::World::new(2, 2, 2, &device);
+        //let mut world = world::World::new(2, 2, 2, &device);
         //world.lock().unwrap().test();
-        world.create_mesh(&device);
-        let camera_controller = CameraController::new(0.006);
+        //world.create_mesh(&device);
+        let camera_controller = CameraController::new(0.06);
         let time = SystemTime::now();
+        let blocks = block::create_all_meshes(&device);
+        let block_ind = block::world(300, &device);
         Self {
             surface,
             device,
@@ -381,7 +395,9 @@ impl State {
             config,
             size,
             render_pipeline,
-            world,
+            //world,
+            blocks,
+            block_ind,
             diffuse_bind_group,
             diffuse_texture,
             camera,
@@ -455,7 +471,7 @@ impl State {
             bytemuck::cast_slice(&[self.camera_uniform]),
         );
 
-        self.world.load_around([self.camera.eye.x, self.camera.eye.y, self.camera.eye.z], self.first_frame, &self.device);
+        //self.world.load_around([self.camera.eye.x, self.camera.eye.y, self.camera.eye.z], self.first_frame, &self.device);
         self.first_frame = false;
     }
 
@@ -498,7 +514,15 @@ impl State {
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]); // NEW!
             render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
-            for i in 0..self.world.loaded_chunks.len() {
+
+            for i in 0..64 {
+                //println!("buffer {} has length {}", i, self.block_ind[i].num_instances);
+                render_pass.set_vertex_buffer(0, self.blocks[i].vertex_buffer.slice(..));
+                render_pass.set_vertex_buffer(1, self.block_ind.blocks[i].instance_buffer.slice(..));
+                render_pass.set_index_buffer(self.blocks[i].index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+                render_pass.draw_indexed(0..self.blocks[i].num_indices, 0, 0..self.block_ind.blocks[i].num_instances as u32);
+            }
+            /*for i in 0..self.world.loaded_chunks.len() {
                 //println!("drawing chunk {}", i);
                 if self.world.loaded_chunks[i].model.is_some() {
                     let model = self.world.loaded_chunks[i].model.as_ref().unwrap();
@@ -508,7 +532,7 @@ impl State {
     
                     render_pass.draw_indexed(0..model.num_indices, 0, 0..1);
                 }
-            }
+            }*/
             //self.block.render(&mut render_pass);
             /*
             FROM DRAWING INDIVIDUAL BLOCKS
@@ -637,4 +661,15 @@ pub async fn run() {
             _ => {}
         }
     });
+}
+
+
+#[test]
+fn test_side_indices() {
+    use std::mem;
+    assert_eq!(block::sides_to_index([false; 6]), 0);
+    assert_eq!(block::sides_to_index([true; 6]), 63);
+    assert_eq!(block::number_to_bits(0), [false; 6]);
+    //println!("SIZE OF VERTEX: {}", mem::size_of::<Vertex>());
+    assert_eq!(mem::size_of::<Instance>(), 1);
 }
