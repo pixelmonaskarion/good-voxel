@@ -1,3 +1,4 @@
+use cgmath::{Point3, Vector3};
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
@@ -67,7 +68,7 @@ impl Vertex {
 const INDICES: &[u16] = &[0, 1, 4, 1, 2, 4, 2, 3, 4];*/
 
 #[derive(Clone)]
-struct Instance {
+pub struct Instance {
     position: cgmath::Vector3<f32>,
     //rotation: cgmath::Quaternion<f32>,
     color: [f32; 3],
@@ -254,10 +255,10 @@ impl State {
             ],
             label: Some("diffuse_bind_group"),
         });
-        let camera = Camera {
+        let mut camera = Camera {
             // position the camera one unit up and 2 units back
             // +z is out of the screen
-            eye: (0.0, 1.0, 2.0).into(),
+            eye: (0.0, -1.0, 2.0).into(),
             // have it look at the origin
             target: (1.0, 0.0, 0.0).into(),
             // which way is "up"
@@ -384,10 +385,13 @@ impl State {
         //let mut world = world::World::new(2, 2, 2, &device);
         //world.lock().unwrap().test();
         //world.create_mesh(&device);
-        let camera_controller = CameraController::new(0.06);
-        let time = SystemTime::now();
+        let camera_controller = CameraController::new(0.006);
         let blocks = block::create_all_meshes(&device);
-        let block_ind = block::world(300, &device);
+        let world_size = 100;
+        let block_ind = block::world(world_size, &device);
+        let middle = (world_size/ 2) as f32 + 0.5;
+        camera.eye = Point3::new(middle, 75.0, middle);
+        let time = SystemTime::now();
         Self {
             surface,
             device,
@@ -463,7 +467,19 @@ impl State {
             Ok(dur) => delta_time-dur.as_millis(),
             Err(_e) => panic!(),
         };
-        self.camera_controller.update_camera(&mut self.camera, delta_time as f32);
+        self.camera_controller.update_camera(&mut self.camera, &self.block_ind, delta_time as f32);
+        if self.camera_controller.left_mouse_pressed {
+            let raycast_result = block::raycast(Vector3::new(self.camera.eye.x, self.camera.eye.y, self.camera.eye.z), self.camera_controller.get_forward_vec(), 1000.0, &self.block_ind);
+            if raycast_result.0 {
+                block::change_block(&mut self.block_ind, raycast_result.1[0], raycast_result.1[1], raycast_result.1[2], false, 0, &self.device);
+            }
+        }
+        if self.camera_controller.right_mouse_pressed {
+            let raycast_result = block::raycast(Vector3::new(self.camera.eye.x, self.camera.eye.y, self.camera.eye.z), self.camera_controller.get_forward_vec(), 1000.0, &self.block_ind);
+            if raycast_result.0 {
+                block::change_block(&mut self.block_ind, (raycast_result.1[0] as f32 + raycast_result.3.x) as i32, (raycast_result.1[1] as f32 + raycast_result.3.y) as i32, (raycast_result.1[2] as f32 + raycast_result.3.z) as i32, true, 0, &self.device);
+            }
+        }
         self.camera_uniform.update_view_proj(&self.camera);
         self.queue.write_buffer(
             &self.camera_buffer,

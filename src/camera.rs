@@ -1,6 +1,10 @@
+use cgmath::{Vector3, Point3};
+use mockall::predicate::ge;
 use winit::{
     event::*,
 };
+
+use crate::block;
 
 
 #[rustfmt::skip]
@@ -58,6 +62,8 @@ impl CameraUniform {
 
 pub struct CameraController {
     speed: f32,
+    sy: f32,
+    in_air: u32,
     ground: f32,
     sky: f32,
     w_pressed: bool,
@@ -69,13 +75,17 @@ pub struct CameraController {
     right_pressed: bool,
     left_pressed: bool,
     space_pressed: bool,
-    shift_pressed: bool,
+    pub shift_pressed: bool,
+    pub left_mouse_pressed: bool,
+    pub right_mouse_pressed: bool,
 }
 
 impl CameraController {
     pub fn new(speed: f32) -> Self {
         Self {
             speed,
+            sy: 0.0,
+            in_air: 0,
             ground: 0.0,
             sky: 0.0,
             w_pressed: false,
@@ -88,6 +98,8 @@ impl CameraController {
             left_pressed: false,
             space_pressed: false,
             shift_pressed: false,
+            left_mouse_pressed: false,
+            right_mouse_pressed: false,
         }
     }
 
@@ -145,6 +157,24 @@ impl CameraController {
                     }
                     _ => false,
                 }
+            },
+            WindowEvent::MouseInput {
+                state,
+                button,
+                ..
+            } => {
+                let is_pressed = *state == ElementState::Pressed;
+                match button {
+                    MouseButton::Left => {
+                        self.left_mouse_pressed = is_pressed;
+                        true
+                    },
+                    MouseButton::Right => {
+                        self.right_mouse_pressed = is_pressed;
+                        true
+                    }
+                    _ => false,
+                }
             }
             _ => false,
         }
@@ -155,7 +185,7 @@ impl CameraController {
         self.sky -= y/200.0;
     }
 
-    pub fn update_camera(&mut self, camera: &mut Camera, delta_time: f32) {
+    pub fn update_camera(&mut self, camera: &mut Camera, world: &block::World, delta_time: f32) {
         if self.right_pressed {
             self.ground += 10.0*self.speed*delta_time * std::f32::consts::PI/180.0;
         }
@@ -172,28 +202,40 @@ impl CameraController {
         }
         self.sky = self.sky.clamp(std::f32::consts::PI*-0.499, std::f32::consts::PI*0.499);
 
-        let forward = cgmath::Vector3::new(self.ground.cos()*self.sky.cos(), self.sky.sin(), self.ground.sin()*self.sky.cos());
+        let forward = self.get_forward_vec();
         //let forward_norm = forward.normalize();
         //let forward_mag = forward.magnitude();
         if self.w_pressed {
-            camera.eye += cgmath::Vector3::new(self.ground.cos(), 0.0, self.ground.sin()) * self.speed*delta_time;
+            move_camera(cgmath::Vector3::new(self.ground.cos(), 0.0, self.ground.sin()) * self.speed*delta_time, camera, world);
         }
         if self.s_pressed {
-            camera.eye -= cgmath::Vector3::new(self.ground.cos(), 0.0, self.ground.sin()) * self.speed*delta_time;
+            move_camera(cgmath::Vector3::new(self.ground.cos(), 0.0, self.ground.sin()) * self.speed*delta_time*-1.0, camera, world);
         }
         let right = cgmath::Vector3::new(self.ground.cos(), 0.0, self.ground.sin()).cross(camera.up);
         if self.a_pressed {
-            camera.eye -= right * self.speed*delta_time;
+            move_camera(right * self.speed*delta_time*-1.0, camera, world);
         }
         if self.d_pressed {
-            camera.eye += right * self.speed*delta_time;
+            move_camera(right * self.speed*delta_time, camera, world);
         }
         if self.space_pressed {
-            camera.eye += cgmath::Vector3::unit_y() * self.speed*delta_time;
+            if self.in_air < 6 {
+                self.sy = 0.2;
+            }
+            //move_camera(cgmath::Vector3::unit_y() * self.speed*delta_time, camera, world);
         }
         if self.shift_pressed {
-            camera.eye -= cgmath::Vector3::unit_y() * self.speed*delta_time;
+            //move_camera(cgmath::Vector3::unit_y() * self.speed*delta_time * -1.0, camera, world);
         }
+
+        self.sy -= 0.001 * delta_time;
+        self.in_air += 1;
+        //println!("{}", delta_time);
+        if move_camera(Vector3 { x: 0.0, y: self.sy, z: 0.0 }, camera, world) {
+            self.sy = 0.0;
+            self.in_air = 0;
+        }
+
         camera.target = camera.eye + forward;
 
         // Redo radius calc in case the fowrard/backward is pressed.
@@ -210,4 +252,34 @@ impl CameraController {
             camera.eye = camera.target - (forward - right * self.speed).normalize() * forward_mag;
         }*/
     }
+    
+    pub fn get_forward_vec(&self) -> Vector3<f32> {
+        cgmath::Vector3::new(self.ground.cos()*self.sky.cos(), self.sky.sin(), self.ground.sin()*self.sky.cos())
+    }
+    
+}
+fn move_camera(vec: Vector3<f32>, camera: &mut Camera, world: &block::World) -> bool {
+    let in_at_start = get_in_block(camera.eye, world, false);
+    camera.eye += vec;
+    let mut collided = false;
+    while get_in_block(camera.eye, world, false) && !in_at_start {
+        camera.eye -= vec*0.01;
+        collided = true;
+    }
+    return collided;
+}
+
+fn get_in_block(pos: Point3<f32>, world: &block::World, force_bounds: bool) -> bool {
+    if pos.x >= world.size as f32 || pos.x < 0.0 || pos.y >= world.size as f32 || pos.y < 0.0 || pos.z >= world.size as f32 || pos.z < 0.0 {
+        return force_bounds;
+    }
+    for offset in [Vector3::new(0.5 as f32, 0.5, 0.5), Vector3::new(0.5 as f32, 0.5, -0.5), Vector3::new(-0.5 as f32, 0.5, 0.5), Vector3::new(-0.5 as f32, 0.5, -0.5), Vector3::new(0.5 as f32, -1.5, 0.5), Vector3::new(0.5 as f32, -1.5, -0.5), Vector3::new(-0.5 as f32, -1.5, 0.5), Vector3::new(-0.5 as f32, -1.5, -0.5)] {
+        let block = world.solid_blocks.get(block::index((pos+offset).x as usize, (pos+offset).y as usize, (pos+offset).z as usize, world.size));
+        if block.is_some() {
+            if *block.unwrap() == true {
+                return true;
+            }
+        }
+    }
+    return false;
 }

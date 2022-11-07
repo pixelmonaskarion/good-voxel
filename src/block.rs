@@ -1,10 +1,15 @@
 use crate::Instance;
 use crate::Vertex;
 use crate::model;
+use cgmath::InnerSpace;
 use wgpu::util::DeviceExt;
 use rand::prelude::*;
 use bitvec::prelude::*;
 use noise::{NoiseFn, OpenSimplex, Perlin};
+use std::cmp::Ordering;
+use std::collections::HashMap;
+use std::panic;
+use cgmath::{Vector3, MetricSpace};
 use std::time::SystemTime;
 
 #[allow(unused_imports)]
@@ -88,10 +93,14 @@ pub struct Blocks {
 
 pub struct World {
     pub blocks: Vec<Blocks>,
+    pub solid_blocks: BitVec,
+    pub block_types: Vec<u8>,
+    pub size: usize,
+    pub instances: Vec<HashMap<[i32; 3], Instance>>,
 }
 
 pub fn world(size: usize, device: &dyn DeviceExt) -> World {
-    let mut instances: Vec<Vec<Instance>> = std::iter::repeat(vec![]).take(64).collect::<Vec<_>>();
+    let mut instances: Vec<HashMap<[i32; 3], Instance>> = std::iter::repeat(HashMap::new()).take(64).collect::<Vec<_>>();
     let mut solid_blocks: BitVec = bitvec![mut 1; 1];
     solid_blocks.resize(size.pow(3), true);
     let mut block_types: Vec<u8> = Vec::new(); 
@@ -130,10 +139,10 @@ pub fn world(size: usize, device: &dyn DeviceExt) -> World {
                 let y = y as i32;
                 let z = z as i32;
                 if get_solid(&mut solid_blocks, x, y, z, size) {
-                    sides = [!get_solid(&mut solid_blocks, x, y+1, z, size), !get_solid(&mut solid_blocks, x, y-1, z, size), !get_solid(&mut solid_blocks, x+1, y, z, size), !get_solid(&mut solid_blocks, x-1, y, z, size), !get_solid(&mut solid_blocks, x, y, z+1, size), !get_solid(&mut solid_blocks, x, y, z-1, size)];
+                    sides = get_sides(&solid_blocks, x, y, z, size);
                 }
                 if sides != [false; 6] {
-                    instances[sides_to_index(sides)].push(Instance {
+                    instances[sides_to_index(sides)].insert([x, y, z],Instance {
                         position: cgmath::Vector3::new(x as f32, y as f32, z as f32),
                         //rotation: cgmath::Quaternion::new(1.0, 0.0, 0.0, 0.0),
                         color: get_color_random(index.try_into().unwrap(), block_type, 0.5),
@@ -145,8 +154,8 @@ pub fn world(size: usize, device: &dyn DeviceExt) -> World {
     }
     println!("took {:?}", SystemTime::now().duration_since(time));
     let mut blockss = Vec::new();
-    for instance in instances {
-        let instance_data = instance.iter().map(Instance::to_raw).collect::<Vec<_>>();
+    for instance in &instances {
+        let instance_data = instance.values().map(Instance::to_raw).collect::<Vec<_>>();
         let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Instance Buffer"),
             contents: bytemuck::cast_slice(&instance_data),
@@ -159,8 +168,78 @@ pub fn world(size: usize, device: &dyn DeviceExt) -> World {
     }
     println!("fr tho it actually took {:?}", SystemTime::now().duration_since(time));
     World {
-        blocks: blockss
+        blocks: blockss,
+        solid_blocks,
+        block_types,
+        size,
+        instances,
     }
+}
+
+pub fn get_sides(solid_blocks: &BitVec, x: i32, y: i32, z: i32, size: usize) -> [bool; 6] {
+    [!get_solid(solid_blocks, x, y+1, z, size), !get_solid(solid_blocks, x, y-1, z, size), !get_solid(solid_blocks, x+1, y, z, size), !get_solid(solid_blocks, x-1, y, z, size), !get_solid(solid_blocks, x, y, z+1, size), !get_solid(solid_blocks, x, y, z-1, size)]
+}
+
+pub fn change_block(world: &mut World, x: i32, y: i32, z: i32, solid: bool, block_type: u8, device: &dyn DeviceExt) {
+    if x < 0 || x >= world.size as i32 || y < 0 || y >= world.size as i32 || z < 0 || z >= world.size as i32 {
+        return;
+    }
+    world.block_types[index(x as usize, y as usize, z as usize, world.size)] = block_type;
+    let block_index = sides_to_index(get_sides(&world.solid_blocks, x, y, z, world.size));
+    let mut update_sides = false;
+    let original_solid = *world.solid_blocks.get(index(x as usize, y as usize, z as usize, world.size)).unwrap();
+    if  original_solid == true && solid == false {
+        world.instances[block_index].remove(&[x,y,z]);
+        update_sides = true;
+    }
+    if original_solid == true && solid == true {
+        world.instances[block_index].insert([x, y, z], Instance {
+            position: cgmath::Vector3::new(x as f32, y as f32, z as f32),
+            //rotation: cgmath::Quaternion::new(1.0, 0.0, 0.0, 0.0),
+            color: get_color_random(index(x as usize, y as usize, z as usize, world.size).try_into().unwrap(), block_type, 0.5),
+        });
+    }
+    if original_solid == false && solid == true {
+
+        world.instances[block_index].insert([x, y, z], Instance {
+            position: cgmath::Vector3::new(x as f32, y as f32, z as f32),
+            //rotation: cgmath::Quaternion::new(1.0, 0.0, 0.0, 0.0),
+            color: get_color_random(index(x as usize, y as usize, z as usize, world.size).try_into().unwrap(), block_type, 0.5),
+        });
+        update_sides = true;
+    }
+    if update_sides {
+        for offset in [[1,0,0], [-1,0,0], [0,1,0], [0,-1,0], [0,0,1], [0,0,-1]] {
+            if *world.solid_blocks.get(index((x+offset[0]) as usize, (y+offset[1]) as usize, (z+offset[2]) as usize, world.size)).unwrap() == false {
+                continue;
+            }
+            let side_index = sides_to_index(get_sides(&world.solid_blocks, x+offset[0], y+offset[1], z+offset[2], world.size));
+            *world.solid_blocks.get_mut(index(x as usize, y as usize, z as usize, world.size)).unwrap() = solid;
+            let new_sides = get_sides(&world.solid_blocks, x+offset[0], y+offset[1], z+offset[2], world.size);
+            *world.solid_blocks.get_mut(index(x as usize, y as usize, z as usize, world.size)).unwrap() = original_solid;
+            world.instances[side_index].remove(&[x+offset[0], y+offset[1], z+offset[2]]);
+            world.instances[sides_to_index(new_sides)].insert([x+offset[0], y+offset[1], z+offset[2]], Instance {
+                position: cgmath::Vector3::new((x+offset[0]) as f32, (y+offset[1]) as f32, (z+offset[2]) as f32),
+                //rotation: cgmath::Quaternion::new(1.0, 0.0, 0.0, 0.0),
+                color: get_color_random(index((x+offset[0]) as usize, (y+offset[1]) as usize, (z+offset[2]) as usize, world.size).try_into().unwrap(), world.block_types[index((x+offset[0]) as usize, (y+offset[1]) as usize, (z+offset[2]) as usize, world.size)], 0.5),
+            });
+        }
+    }
+    *world.solid_blocks.get_mut(index(x as usize, y as usize, z as usize, world.size)).unwrap() = solid;
+    let mut blockss = Vec::new();
+    for instance in &world.instances {
+        let instance_data = instance.values().map(Instance::to_raw).collect::<Vec<_>>();
+        let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Instance Buffer"),
+            contents: bytemuck::cast_slice(&instance_data),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+        blockss.push(Blocks {
+            instance_buffer,
+            num_instances: instance.len(),
+        });
+    }
+    world.blocks = blockss;
 }
 
 pub fn get_color_random(index: u64, x: u8, randomness: f32) -> [f32; 3] {
@@ -183,7 +262,7 @@ pub fn get_color(x: u8) -> [f32; 3] {
     return [0.0,0.0,0.0];
 }
 
-pub fn get_solid(bits: &mut BitVec, x: i32, y: i32, z: i32, size: usize) -> bool {
+pub fn get_solid(bits: &BitVec, x: i32, y: i32, z: i32, size: usize) -> bool {
     if x < 0 || y < 0 || z < 0 || x >= size as i32 || y >= size as i32 || z >= size as i32 {
         return false;
     }
@@ -195,8 +274,28 @@ pub fn get_solid(bits: &mut BitVec, x: i32, y: i32, z: i32, size: usize) -> bool
     }
 }
 
+pub fn raycast(start_pos: Vector3<f32>, dir: Vector3<f32>, max_dist: f32, world: &World) -> (bool, [i32; 3], u8, Vector3<f32>) {
+    let mut pos = start_pos;
+    while pos.distance(start_pos) <= max_dist && pos.x >= 0.0 && pos.x < world.size as f32 && pos.y >= 0.0 && pos.y < world.size as f32 && pos.z >= 0.0 && pos.z < world.size as f32 {
+        let solid_here = get_solid(&world.solid_blocks, pos.x as i32, pos.y as i32, pos.z as i32, world.size);
+        if solid_here {
+            let block_pos = [pos.x as i32, pos.y as i32, pos.z as i32];
+            let block_here = world.block_types[index(pos.x as usize, pos.y as usize, pos.z as usize, world.size)];
+            while [pos.x as i32, pos.y as i32, pos.z as i32] == block_pos {
+                pos -= dir*0.0001;
+            }
+            return (true, block_pos, block_here, Vector3::new(pos.x - block_pos[0] as f32, pos.y - block_pos[1] as f32, pos.z - block_pos[2] as f32).normalize());
+        }
+        pos += dir;
+    }
+    return (false, [pos.x as i32, pos.y as i32, pos.z as i32], 0, Vector3::new(0.0,0.0,0.0));
+}
+
 pub fn index(x: usize, y: usize, z: usize, size: usize) -> usize {
-    x*size*size + y * size + z
+    if x < size && y < size && z < size {
+        return x*size*size + y * size + z;
+    }
+    return 0;
 }
 
 pub fn sides_to_index(sides: [bool; 6]) -> usize {
