@@ -1,5 +1,5 @@
 [package]
-name = "voxel"
+name = "good_voxel"
 version = "0.1.0"
 edition = "2021"
 
@@ -16,6 +16,7 @@ log = "0.4"
 wgpu = "0.12"
 pollster = "0.2"
 bytemuck = { version = "1.4", features = [ "derive" ] }
+getrandom = { version = "0.2", features = ["js"] }
 anyhow = "1.0"
 cgmath = "0.18"
 noise = "0.8.2"
@@ -28,9 +29,9 @@ bitvec = "1.0.1"
 console_error_panic_hook = "0.1.6"
 console_log = "0.2.0"
 wgpu = { version = "0.12", features = ["webgl"]}
-wasm-bindgen = "0.2.76"
-wasm-bindgen-futures = "0.4.30"
-web-sys = { version = "0.3.53", features = [
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+web-sys = { version = "0.3", features = [
     "Document",
     "Window",
     "Element",
