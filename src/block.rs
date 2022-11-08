@@ -10,7 +10,8 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::panic;
 use cgmath::{Vector3, MetricSpace};
-use std::time::SystemTime;
+use wasm_timer::SystemTime;
+
 
 #[allow(unused_imports)]
 use mockall::predicate::*;

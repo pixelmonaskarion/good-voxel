@@ -1,5 +1,5 @@
 [package]
-name = "good_voxel"
+name = "tiny_voxel"
 version = "0.1.0"
 edition = "2021"
 
@@ -24,7 +24,7 @@ rand = "0.8.5"
 colored = "2.0.0"
 mockall = "*"
 bitvec = "1.0.1"
-
+wasm-timer = "0.2.5"
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console_error_panic_hook = "0.1.6"
 console_log = "0.2.0"

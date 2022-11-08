@@ -2,7 +2,7 @@ use cgmath::{Point3, Vector3};
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
-    window::WindowBuilder,
+    window::WindowBuilder, dpi::PhysicalSize,
 };
 
 // use cgmath::prelude::*;
@@ -10,7 +10,7 @@ use winit::{
 use wasm_bindgen::prelude::*;
 use wgpu::util::DeviceExt;
 use winit::window::Window;
-use std::time::SystemTime;
+use wasm_timer::SystemTime;
 
 mod camera;
 mod texture;
@@ -413,7 +413,9 @@ impl State {
         }
     }
 
-    fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
+    fn resize(&mut self, mut new_size: winit::dpi::PhysicalSize<u32>) {
+        new_size.width = new_size.width.min(2048);
+        new_size.height = new_size.height.min(2048);
         if new_size.width > 0 && new_size.height > 0 {
             self.size = new_size;
             self.config.width = new_size.width;
@@ -425,6 +427,34 @@ impl State {
     }
 
     fn input(&mut self, window: &Window, event: &WindowEvent) -> bool {
+        #[cfg(target_arch = "wasm32")] {
+            match event {
+                WindowEvent::MouseInput {
+                    state,
+                    button,
+                    ..
+                } => {
+                    let is_pressed = *state == ElementState::Pressed;
+                    match button {
+                        MouseButton::Left => {
+                            log::info!("It works!");
+                        
+                            use winit::platform::web::WindowExtWebSys;
+                            web_sys::window()
+                                .and_then(|win| win.document())
+                                .and_then(|doc| {
+                                    let canvas = doc.get_element_by_id("game_canvas")?;
+                                    canvas.request_pointer_lock();
+                                    Some(())
+                                })
+                                .expect("Couldn't append canvas to document body.");
+                        },
+                        _ => {},
+                    }
+                },
+                _ => {}
+            }
+        }
         if self.camera_controller.process_events(event) {
             true
         } else {
@@ -454,14 +484,15 @@ impl State {
     }
 
     fn update(&mut self) {
+        println!("Hello wasm");
         let mut delta_time = match self.time.elapsed() {
             Ok(dur) => dur.as_millis(),
-            Err(_e) => panic!(),
+            Err(_e) => 15,
         };
         self.time = SystemTime::now();
         delta_time = match self.time.elapsed() {
             Ok(dur) => delta_time-dur.as_millis(),
-            Err(_e) => panic!(),
+            Err(_e) => 15,
         };
         self.camera_controller.update_camera(&mut self.camera, &self.block_ind, delta_time as f32);
         if self.camera_controller.left_mouse_pressed {
@@ -588,29 +619,43 @@ pub async fn run() {
 
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new().build(&event_loop).unwrap();
-
     #[cfg(target_arch = "wasm32")]
-{
-    // Winit prevents sizing with CSS, so we have to set
-    // the size manually when on web.
-    use winit::dpi::PhysicalSize;
-    window.set_inner_size(PhysicalSize::new(450, 400));
-    
-    use winit::platform::web::WindowExtWebSys;
-    web_sys::window()
-        .and_then(|win| win.document())
-        .and_then(|doc| {
-            let dst = doc.get_element_by_id("wasm-example")?;
-            let canvas = web_sys::Element::from(window.canvas());
-            dst.append_child(&canvas).ok()?;
-            Some(())
-        })
-        .expect("Couldn't append canvas to document body.");
-}
+    {
+        // Winit prevents sizing with CSS, so we have to set
+        // the size manually when on web.
+        use winit::dpi::PhysicalSize;
+        
+        use winit::platform::web::WindowExtWebSys;
+        web_sys::window()
+            .and_then(|win| win.document())
+            .and_then(|doc| {
+                let dst = doc.get_element_by_id("wasm-example")?;
+                let canvas = web_sys::Element::from(window.canvas());
+                canvas.set_id("game_canvas");
+                dst.append_child(&canvas).ok()?;
+                Some(())
+            })
+            .expect("Couldn't append canvas to document body.");
+        let width = match web_sys::window().unwrap().inner_width() {
+            Ok(w) => w.as_f64().unwrap() as i32,
+            Err(_e) => 450,
+        };
+        let height = match web_sys::window().unwrap().inner_height() {
+            Ok(h) => h.as_f64().unwrap() as i32,
+            Err(_e) => 400,
+        };
+        window.set_inner_size(PhysicalSize::new(width.min(2048), height.min(2048)));
+    }   
     // let moniter = window.primary_monitor().unwrap();
     // window.set_outer_position(moniter.position());
     // window.set_inner_size(moniter.size());
-    window.set_fullscreen(Some(winit::window::Fullscreen::Borderless(None)));
+    cfg_if::cfg_if! {
+        if #[cfg(target_arch = "wasm32")] {
+
+        } else {
+            window.set_fullscreen(Some(winit::window::Fullscreen::Borderless(None)));
+        }
+    }
 
     let mut state = State::new(&window).await;
     let _cp = window.set_cursor_position(winit::dpi::PhysicalPosition::new(state.config.width/2, state.config.height/2));
@@ -641,7 +686,28 @@ pub async fn run() {
                                     ..
                                 },
                             ..
-                        } => *control_flow = ControlFlow::Exit,
+                        } => {
+                            cfg_if::cfg_if! {
+                                if #[cfg(target_arch = "wasm32")] {
+                                    #[cfg(target_arch = "wasm32")]
+                                    {
+                                        log::info!("It works!");
+                                        
+                                        use winit::platform::web::WindowExtWebSys;
+                                        web_sys::window()
+                                            .and_then(|win| win.document())
+                                            .and_then(|doc| {
+                                                let canvas = doc.get_element_by_id("game_canvas")?;
+                                                canvas.request_pointer_lock();
+                                                Some(())
+                                            })
+                                            .expect("Couldn't append canvas to document body.");
+                                    }
+                                } else {
+                                    *control_flow = ControlFlow::Exit;
+                                }
+                            }
+                        },
                         WindowEvent::Resized(physical_size) => {
                             state.resize(*physical_size);
                         }
