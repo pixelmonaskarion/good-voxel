@@ -1,0 +1,12 @@
+{
+  "name": "tiny_voxel",
+  "version": "0.1.0",
+  "files": [
+    "tiny_voxel_bg.wasm",
+    "tiny_voxel.js",
+    "tiny_voxel.d.ts"
+  ],
+  "module": "tiny_voxel.js",
+  "types": "tiny_voxel.d.ts",
+  "sideEffects": false
+}
