@@ -1,5 +1,4 @@
 use cgmath::{Vector3, Point3};
-use mockall::predicate::ge;
 use winit::{
     event::*,
 };
@@ -259,11 +258,37 @@ impl CameraController {
     
 }
 fn move_camera(vec: Vector3<f32>, camera: &mut Camera, world: &block::World) -> bool {
+    return move_camera_x(vec.x, camera, world) || move_camera_y(vec.y, camera, world) || move_camera_z(vec.z, camera, world);
+}
+
+fn move_camera_x(x: f32, camera: &mut Camera, world: &block::World) -> bool {
     let in_at_start = get_in_block(camera.eye, world, false);
-    camera.eye += vec;
+    camera.eye.x += x;
     let mut collided = false;
     while get_in_block(camera.eye, world, false) && !in_at_start {
-        camera.eye -= vec*0.01;
+        camera.eye.x -= x*0.01;
+        collided = true;
+    }
+    return collided;
+}
+
+fn move_camera_y(y: f32, camera: &mut Camera, world: &block::World) -> bool {
+    let in_at_start = get_in_block(camera.eye, world, false);
+    camera.eye.y += y;
+    let mut collided = false;
+    while get_in_block(camera.eye, world, false) && !in_at_start {
+        camera.eye.y -= y*0.01;
+        collided = true;
+    }
+    return collided;
+}
+
+fn move_camera_z(z: f32, camera: &mut Camera, world: &block::World) -> bool {
+    let in_at_start = get_in_block(camera.eye, world, false);
+    camera.eye.z += z;
+    let mut collided = false;
+    while get_in_block(camera.eye, world, false) && !in_at_start {
+        camera.eye.z -= z*0.01;
         collided = true;
     }
     return collided;
@@ -273,7 +298,7 @@ fn get_in_block(pos: Point3<f32>, world: &block::World, force_bounds: bool) -> b
     if pos.x >= world.size as f32 || pos.x < 0.0 || pos.y >= world.size as f32 || pos.y < 0.0 || pos.z >= world.size as f32 || pos.z < 0.0 {
         return force_bounds;
     }
-    for offset in [Vector3::new(0.5 as f32, 0.5, 0.5), Vector3::new(0.5 as f32, 0.5, -0.5), Vector3::new(-0.5 as f32, 0.5, 0.5), Vector3::new(-0.5 as f32, 0.5, -0.5), Vector3::new(0.5 as f32, -1.5, 0.5), Vector3::new(0.5 as f32, -1.5, -0.5), Vector3::new(-0.5 as f32, -1.5, 0.5), Vector3::new(-0.5 as f32, -1.5, -0.5)] {
+    for offset in [Vector3::new(0.4 as f32, 0.4, 0.4), Vector3::new(0.4 as f32, 0.4, -0.4), Vector3::new(-0.4 as f32, 0.4, 0.4), Vector3::new(-0.4 as f32, 0.4, -0.4), Vector3::new(0.4 as f32, -1.5, 0.4), Vector3::new(0.4 as f32, -1.5, -0.4), Vector3::new(-0.4 as f32, -1.5, 0.4), Vector3::new(-0.4 as f32, -1.5, -0.4)] {
         let block = world.solid_blocks.get(block::index((pos+offset).x as usize, (pos+offset).y as usize, (pos+offset).z as usize, world.size));
         if block.is_some() {
             if *block.unwrap() == true {

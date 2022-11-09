@@ -2,10 +2,9 @@ use cgmath::{Point3, Vector3};
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
-    window::WindowBuilder, dpi::PhysicalSize,
+    window::WindowBuilder,
 };
 
-// use cgmath::prelude::*;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 use wgpu::util::DeviceExt;
@@ -16,23 +15,21 @@ mod camera;
 mod texture;
 mod model;
 mod block;
-//mod chunk;
-//mod world;
 use camera::*;
 
-// lib.rs
+
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+//right now this only stores the position, but it used to store other stuff
+//so that's why I don't just use a array
 pub struct Vertex {
     position: [f32; 3],
-    //color: [f32; 3],
 }
 
 impl Vertex {
-    pub const fn new(x: f32, y: f32, z:f32, r: f32, g: f32, b: f32) -> Self{
+    pub const fn new(x: f32, y: f32, z:f32) -> Self{
         Self {
             position: [x, y, z],
-            //color: [r, g, b],
         }
     }
 
@@ -47,6 +44,7 @@ impl Vertex {
                     shader_location: 0,
                     format: wgpu::VertexFormat::Float32x3,
                 },
+                //old code for adding something else to the vertex
                 /*wgpu::VertexAttribute {
                     offset: mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
                     shader_location: 1,
@@ -57,46 +55,24 @@ impl Vertex {
     }
 }
 
-/*const VERTICES: &[Vertex] = &[
-    Vertex { position: [-0.0868241, 0.49240386, 0.0], tex_coords: [0.4131759, 0.00759614], }, // A
-    Vertex { position: [-0.49513406, 0.06958647, 0.0], tex_coords: [0.0048659444, 0.43041354], }, // B
-    Vertex { position: [-0.21918549, -0.44939706, 0.0], tex_coords: [0.28081453, 0.949397], }, // C
-    Vertex { position: [0.35966998, -0.3473291, 0.0], tex_coords: [0.85967, 0.84732914], }, // D
-    Vertex { position: [0.44147372, 0.2347359, 0.0], tex_coords: [0.9414737, 0.2652641], }, // E
-];
-
-const INDICES: &[u16] = &[0, 1, 4, 1, 2, 4, 2, 3, 4];*/
-
 #[derive(Clone)]
 pub struct Instance {
     position: cgmath::Vector3<f32>,
-    //rotation: cgmath::Quaternion<f32>,
     color: [f32; 3],
 }
 
 impl Instance {
     fn to_raw(&self) -> InstanceRaw {
         InstanceRaw {
-            /*model: (cgmath::Matrix4::from_translation(self.position)
-                * cgmath::Matrix4::from(self.rotation))
-            .into(),*/
             pos: self.position.into(),
             color: self.color,
         }
     }
 }
 
-// const NUM_INSTANCES_PER_ROW: u32 = 10;
-// const INSTANCE_DISPLACEMENT: cgmath::Vector3<f32> = cgmath::Vector3::new(
-//     NUM_INSTANCES_PER_ROW as f32 * 0.5,
-//     0.0,
-//     NUM_INSTANCES_PER_ROW as f32 * 0.5,
-// );
-
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 struct InstanceRaw {
-    //model: [[f32; 4]; 4],
     pos: [f32; 3],
     color: [f32; 3],
 }
@@ -106,36 +82,13 @@ impl InstanceRaw {
         use std::mem;
         wgpu::VertexBufferLayout {
             array_stride: mem::size_of::<InstanceRaw>() as wgpu::BufferAddress,
-            // We need to switch from using a step mode of Vertex to Instance
-            // This means that our shaders will only change to use the next
-            // instance when the shader starts processing a new instance
             step_mode: wgpu::VertexStepMode::Instance,
             attributes: &[
                 wgpu::VertexAttribute {
                     offset: 0,
-                    // While our vertex shader only uses locations 0, and 1 now, in later tutorials we'll
-                    // be using 2, 3, and 4, for Vertex. We'll start at slot 5 not conflict with them later
                     shader_location: 5,
                     format: wgpu::VertexFormat::Float32x3,
                 },
-                // A mat4 takes up 4 vertex slots as it is technically 4 vec4s. We need to define a slot
-                // for each vec4. We'll have to reassemble the mat4 in
-                // the shader.
-                /*wgpu::VertexAttribute {
-                    offset: mem::size_of::<[f32; 4]>() as wgpu::BufferAddress,
-                    shader_location: 6,
-                    format: wgpu::VertexFormat::Float32x4,
-                },
-                wgpu::VertexAttribute {
-                    offset: mem::size_of::<[f32; 8]>() as wgpu::BufferAddress,
-                    shader_location: 7,
-                    format: wgpu::VertexFormat::Float32x4,
-                },
-                wgpu::VertexAttribute {
-                    offset: mem::size_of::<[f32; 12]>() as wgpu::BufferAddress,
-                    shader_location: 8,
-                    format: wgpu::VertexFormat::Float32x4,
-                },*/
                 wgpu::VertexAttribute {
                     offset: mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
                     shader_location: 6,
@@ -154,11 +107,8 @@ struct State {
     config: wgpu::SurfaceConfiguration,
     size: winit::dpi::PhysicalSize<u32>,
     render_pipeline: wgpu::RenderPipeline,
-    //world: world::World,
     blocks: Vec<model::Model>,
     block_ind: block::World,
-    //diffuse_bind_group: wgpu::BindGroup,
-    //diffuse_texture: texture::Texture,
     camera: Camera,
     camera_uniform: CameraUniform,
     camera_buffer: wgpu::Buffer,
@@ -170,14 +120,15 @@ struct State {
     time: SystemTime,
     first_frame: bool,
 }
-
+//I'm gonna keep some of the comments from the tutorial in here because I like them
+//tutorial comments will start with a *
 impl State {
-    // Creating some of the wgpu types requires async code
+    // *Creating some of the wgpu types requires async code
     async fn new(window: &Window) -> Self {
         let size = window.inner_size();
 
-        // The instance is a handle to our GPU
-        // Backends::all => Vulkan + Metal + DX12 + Browser WebGPU
+        // *The instance is a handle to our GPU
+        // *Backends::all => Vulkan + Metal + DX12 + Browser WebGPU
         let instance = wgpu::Instance::new(wgpu::Backends::all());
         let surface = unsafe { instance.create_surface(window) };
         let adapter = instance.request_adapter(
@@ -190,8 +141,8 @@ impl State {
             let (device, queue) = adapter.request_device(
                 &wgpu::DeviceDescriptor {
                     features: wgpu::Features::empty(),
-                    // WebGL doesn't support all of wgpu's features, so if
-                    // we're building for the web we'll have to disable some.
+                    // *WebGL doesn't support all of wgpu's features, so if
+                    // *we're building for the web we'll have to disable some.
                     limits: if cfg!(target_arch = "wasm32") {
                         wgpu::Limits::downlevel_webgl2_defaults()
                     } else {
@@ -199,7 +150,7 @@ impl State {
                     },
                     label: None,
                 },
-                None, // Trace path
+                None,
             ).await.unwrap();
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
@@ -209,55 +160,9 @@ impl State {
             present_mode: wgpu::PresentMode::Fifo,
         };
         surface.configure(&device, &config);
-        //let diffuse_bytes = include_bytes!("textures.png"); // CHANGED!
-        //let diffuse_texture =
-        //    texture::Texture::from_bytes(&device, &queue, diffuse_bytes, "textures.png").unwrap(); // CHANGED!
-
-        let texture_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                entries: &[
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Texture {
-                            multisampled: false,
-                            view_dimension: wgpu::TextureViewDimension::D2,
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        },
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        // This should match the filterable field of the
-                        // corresponding Texture entry above.
-                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                        count: None,
-                    },
-                ],
-                label: Some("texture_bind_group_layout"),
-            });
-        /*let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &texture_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&diffuse_texture.view), // CHANGED!
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler), // CHANGED!
-                },
-            ],
-            label: Some("diffuse_bind_group"),
-        });*/
         let mut camera = Camera {
-            // position the camera one unit up and 2 units back
-            // +z is out of the screen
             eye: (0.0, -1.0, 2.0).into(),
-            // have it look at the origin
             target: (1.0, 0.0, 0.0).into(),
-            // which way is "up"
             up: cgmath::Vector3::unit_y(),
             aspect: config.width as f32 / config.height as f32,
             fovy: 45.0,
@@ -384,7 +289,7 @@ impl State {
         let camera_controller = CameraController::new(0.006);
         let blocks = block::create_all_meshes(&device);
         let world_size = 100;
-        let block_ind = block::world(world_size, &device);
+        let block_ind = block::World::world(world_size, &device);
         let middle = (world_size/ 2) as f32 + 0.5;
         camera.eye = Point3::new(middle, 75.0, middle);
         let time = SystemTime::now();
@@ -412,10 +317,15 @@ impl State {
             first_frame: true,
         }
     }
-
+    
+    //I don't know how to remove this warning
     fn resize(&mut self, mut new_size: winit::dpi::PhysicalSize<u32>) {
-        new_size.width = new_size.width.min(2048);
-        new_size.height = new_size.height.min(2048);
+        cfg_if::cfg_if! {
+            if #[cfg(target_arch = "wasm32")] {
+                new_size.width = new_size.width.min(2048);
+                new_size.height = new_size.height.min(2048);
+            }
+        }
         if new_size.width > 0 && new_size.height > 0 {
             self.size = new_size;
             self.config.width = new_size.width;
@@ -484,7 +394,6 @@ impl State {
     }
 
     fn update(&mut self) {
-        println!("Hello wasm");
         let mut delta_time = match self.time.elapsed() {
             Ok(dur) => dur.as_millis(),
             Err(_e) => 15,
@@ -496,15 +405,15 @@ impl State {
         };
         self.camera_controller.update_camera(&mut self.camera, &self.block_ind, delta_time as f32);
         if self.camera_controller.left_mouse_pressed {
-            let raycast_result = block::raycast(Vector3::new(self.camera.eye.x, self.camera.eye.y, self.camera.eye.z), self.camera_controller.get_forward_vec(), 1000.0, &self.block_ind);
+            let raycast_result = self.block_ind.raycast(Vector3::new(self.camera.eye.x, self.camera.eye.y, self.camera.eye.z), self.camera_controller.get_forward_vec(), 1000.0);
             if raycast_result.0 {
-                block::change_block(&mut self.block_ind, raycast_result.1[0], raycast_result.1[1], raycast_result.1[2], false, 0, &self.device);
+                self.block_ind.change_block(raycast_result.1[0], raycast_result.1[1], raycast_result.1[2], false, 0, &self.device);
             }
         }
         if self.camera_controller.right_mouse_pressed {
-            let raycast_result = block::raycast(Vector3::new(self.camera.eye.x, self.camera.eye.y, self.camera.eye.z), self.camera_controller.get_forward_vec(), 1000.0, &self.block_ind);
+            let raycast_result = self.block_ind.raycast(Vector3::new(self.camera.eye.x, self.camera.eye.y, self.camera.eye.z), self.camera_controller.get_forward_vec(), 1000.0);
             if raycast_result.0 {
-                block::change_block(&mut self.block_ind, (raycast_result.1[0] as f32 + raycast_result.3.x) as i32, (raycast_result.1[1] as f32 + raycast_result.3.y) as i32, (raycast_result.1[2] as f32 + raycast_result.3.z) as i32, true, 0, &self.device);
+                self.block_ind.change_block((raycast_result.1[0] as f32 + raycast_result.3.x) as i32, (raycast_result.1[1] as f32 + raycast_result.3.y) as i32, (raycast_result.1[2] as f32 + raycast_result.3.z) as i32, true, 0, &self.device);
             }
         }
         self.camera_uniform.update_view_proj(&self.camera);
