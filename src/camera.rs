@@ -5,6 +5,7 @@ use winit::{
 
 use crate::block;
 
+pub const GM: i32 = 1;
 
 #[rustfmt::skip]
 pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
@@ -80,7 +81,10 @@ pub struct CameraController {
 }
 
 impl CameraController {
-    pub fn new(speed: f32) -> Self {
+    pub fn new(mut speed: f32) -> Self {
+        if GM == 1 {
+            speed = speed*5.0;
+        }
         Self {
             speed,
             sy: 0.0,
@@ -218,21 +222,31 @@ impl CameraController {
             move_camera(right * self.speed*delta_time, camera, world);
         }
         if self.space_pressed {
-            if self.in_air < 6 {
-                self.sy = 0.2;
+            if GM == 0 {
+                if self.in_air < 6 {
+                    self.sy = 0.2;
+                }
+            } else {
+                move_camera(cgmath::Vector3::unit_y() * self.speed*delta_time, camera, world);
             }
-            //move_camera(cgmath::Vector3::unit_y() * self.speed*delta_time, camera, world);
         }
         if self.shift_pressed {
-            //move_camera(cgmath::Vector3::unit_y() * self.speed*delta_time * -1.0, camera, world);
+            if GM == 1 {
+                move_camera(cgmath::Vector3::unit_y() * self.speed*delta_time * -1.0, camera, world);
+            }
         }
 
-        self.sy -= 0.001 * delta_time;
+        if GM == 0 {
+            self.sy -= 0.001 * delta_time;
+        }
         self.in_air += 1;
         //println!("{}", delta_time);
         if move_camera(Vector3 { x: 0.0, y: self.sy, z: 0.0 }, camera, world) {
             self.sy = 0.0;
             self.in_air = 0;
+        }
+        if GM == 1 {
+            self.sy = 0.0;
         }
 
         camera.target = camera.eye + forward;
@@ -295,16 +309,23 @@ fn move_camera_z(z: f32, camera: &mut Camera, world: &block::World) -> bool {
 }
 
 fn get_in_block(pos: Point3<f32>, world: &block::World, force_bounds: bool) -> bool {
+    if GM == 1 {
+        return false;
+    }
     if pos.x >= world.size as f32 || pos.x < 0.0 || pos.y >= world.size as f32 || pos.y < 0.0 || pos.z >= world.size as f32 || pos.z < 0.0 {
         return force_bounds;
     }
     for offset in [Vector3::new(0.4 as f32, 0.4, 0.4), Vector3::new(0.4 as f32, 0.4, -0.4), Vector3::new(-0.4 as f32, 0.4, 0.4), Vector3::new(-0.4 as f32, 0.4, -0.4), Vector3::new(0.4 as f32, -1.5, 0.4), Vector3::new(0.4 as f32, -1.5, -0.4), Vector3::new(-0.4 as f32, -1.5, 0.4), Vector3::new(-0.4 as f32, -1.5, -0.4)] {
-        let block = world.solid_blocks.get(block::index((pos+offset).x as usize, (pos+offset).y as usize, (pos+offset).z as usize, world.size));
-        if block.is_some() {
-            if *block.unwrap() == true {
-                return true;
+        if world.solid_blocks.is_some() {
+            let solid_blocks = world.solid_blocks.as_ref().unwrap();
+            let block = solid_blocks.get(block::index((pos+offset).x as usize, (pos+offset).y as usize, (pos+offset).z as usize, world.size));
+            if block.is_some() {
+                if *block.unwrap() == true {
+                    return true;
+                }
             }
         }
+        
     }
     return false;
 }

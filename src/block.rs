@@ -2,14 +2,17 @@ use crate::Instance;
 use crate::Vertex;
 use crate::model;
 use cgmath::InnerSpace;
+use noise::NoiseFn;
+use noise::Perlin;
 use wgpu::util::DeviceExt;
 use rand::prelude::*;
 use bitvec::prelude::*;
-use noise::{NoiseFn, OpenSimplex, Perlin};
 use std::collections::HashMap;
+use std::sync::mpsc::Receiver;
 use cgmath::{Vector3, MetricSpace};
 use wasm_timer::SystemTime;
-
+use std::thread;
+use std::sync::mpsc::channel;
 
 #[allow(unused_imports)]
 use mockall::predicate::*;
@@ -60,11 +63,33 @@ pub struct Blocks {
     instances: for holding each individual position for blocks, explained in change_block funcion
 */
 pub struct World {
-    pub blocks: Vec<Blocks>,
-    pub solid_blocks: BitVec,
-    pub block_types: Vec<u8>,
+    pub blocks: Option<Vec<Blocks>>,
+    pub solid_blocks: Option<BitVec>,
+    pub block_types: Option<Vec<u8>>,
     pub size: usize,
-    pub instances: Vec<HashMap<[i32; 3], Instance>>,
+    pub instances: Option<Vec<HashMap<[i32; 3], Instance>>>,
+    pub receiver: Receiver<(Vec<HashMap<[i32; 3], Instance>>, BitVec<usize, Lsb0>, Vec<u8>)>,
+}
+
+#[derive(Clone)]
+pub struct Generator {
+    pub surface_noise: Perlin,
+    pub cave_noise: Perlin,
+    pub seed: u32,
+}
+
+impl Generator {
+    pub fn new() -> Self {
+        let mut rng = rand::thread_rng();
+        let seed = rng.gen::<u32>();
+        let surface_noise = Perlin::new(seed);
+        let cave_noise = Perlin::new(seed);
+        Self {
+            surface_noise,
+            cave_noise,
+            seed,
+        }
+    }
 }
 
 impl World {
@@ -72,7 +97,10 @@ impl World {
     // generates the blocks
     // creates instances for them
     // sends them to the gpu and gets buffers
-    pub fn world(size: usize, device: &dyn DeviceExt) -> World {
+    pub fn world(generator: &Generator, wx: i32, wy: i32, wz: i32, size: usize, device: &dyn DeviceExt, synchronous: bool) -> World {
+        let (tx, rx) = channel();
+        let generator_moved = generator.clone();
+        thread::spawn(move|| {
         //initializes variables
         let mut instances: Vec<HashMap<[i32; 3], Instance>> = std::iter::repeat(HashMap::new()).take(64).collect::<Vec<_>>();
         let mut solid_blocks: BitVec = bitvec![mut 1; 1];
@@ -80,22 +108,20 @@ impl World {
         let mut block_types: Vec<u8> = Vec::new(); 
         block_types.resize(size.pow(3), 0);
         let time = SystemTime::now();
-        //creates random and noise functions for generation
-        let mut rng = rand::thread_rng();
-        let seed = rng.gen::<u32>();
-        let noise = OpenSimplex::new(seed);
-        let cave_noise = Perlin::new(seed);
         //loops through all blocks and generates them
         for x in 0..size {
             for z in 0..size {
+                let exact_x = x as i32 + wx;
+                let exact_z = z as i32 + wz;
                 //the height is only determined by x and z so it is created here and the loop is is in this weird order
-                let height = noise.get([x as f64 / 100.0, z as f64 / 100.0]);
+                let height = generator_moved.surface_noise.get([exact_x as f64 / 100.0, exact_z as f64 / 100.0]);
                 for y in 0..size {
+                    let exact_y = y as i32 + wy;
                     //ground or sky?
                     #[allow(unused_mut)]
-                    let mut solid = (y as f32) < (height+1.0) as f32 *50.0 && cave_noise.get([x as f64 / 30.0, y as f64 / 30.0, z as f64 / 30.0]) < 0.1;
+                    let mut solid = (exact_y as f32) < (height+1.0) as f32 *50.0 && generator_moved.cave_noise.get([exact_x as f64/ 30.0, exact_y as f64/ 30.0, exact_z as f64/ 30.0]) < 0.1;
                     //is it ten blocks underneath the surface?
-                    if (y as f32 + 10.0) < (height+1.0) as f32 *50.0 {
+                    if (exact_y as f32 + 10.0) < (height+1.0) as f32 *50.0 {
                         //solid if in a cave
                         //solid = 
                         //sets the block type to be stone block type
@@ -124,12 +150,15 @@ impl World {
                         let x = x as i32;
                         let y = y as i32;
                         let z = z as i32;
+                        let exact_x = x + wx;
+                        let exact_z = z + wz;
+                        let exact_y = y + wy;
                         if get_solid(&mut solid_blocks, x, y, z, size) {
                             sides = get_sides(&solid_blocks, x, y, z, size);
                         }
                         if sides != [false; 6] {
                             instances[sides_to_index(sides)].insert([x, y, z],Instance {
-                                position: get_position(x as f32, y as f32, z as f32, BLOCK_SIZE),
+                                position: get_position(exact_x as f32, exact_y as f32, exact_z as f32, BLOCK_SIZE),
                                 color: get_color_random(index.try_into().unwrap(), block_type, 0.5),
                             });
                         }
@@ -139,9 +168,124 @@ impl World {
             println!("Instancing {}%", ((x as f32 +1.0)/size as f32)*100.0);
         }
         println!("took {:?}", SystemTime::now().duration_since(time));
+        let _result = tx.send((instances, solid_blocks, block_types));
+        });
+        if synchronous {
+            let data = rx.recv().unwrap();
+            let mut blockss = Vec::new();
+            //sends each vec of instances to the gpu and puts the buffer into a vec
+            for instance in &data.0 {
+                let instance_data = instance.values().map(Instance::to_raw).collect::<Vec<_>>();
+                let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Instance Buffer"),
+                    contents: bytemuck::cast_slice(&instance_data),
+                    usage: wgpu::BufferUsages::VERTEX,
+                });
+                blockss.push(Blocks {
+                    instance_buffer,
+                    num_instances: instance.len(),
+                });
+            }
+            return World {
+                blocks: Some(blockss),
+                solid_blocks: Some(data.1),
+                block_types: Some(data.2),
+                size,
+                instances: Some(data.0),
+                receiver: rx,
+            };
+        }
+        //println!("fr tho it actually took {:?}", SystemTime::now().duration_since(time));
+        return World {
+            blocks: None,
+            solid_blocks: None,
+            block_types: None,
+            size,
+            instances: None,
+            receiver: rx,
+        };
+    }
+
+    pub fn try_finish(&mut self, device: &dyn DeviceExt) {
+        match self.receiver.try_recv() {
+            Ok(data) => {
+                let mut blockss = Vec::new();
+                //sends each vec of instances to the gpu and puts the buffer into a vec
+                for instance in &data.0 {
+                    let instance_data = instance.values().map(Instance::to_raw).collect::<Vec<_>>();
+                    let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                        label: Some("Instance Buffer"),
+                        contents: bytemuck::cast_slice(&instance_data),
+                        usage: wgpu::BufferUsages::VERTEX,
+                    });
+                    blockss.push(Blocks {
+                        instance_buffer,
+                        num_instances: instance.len(),
+                    });
+                }
+                self.instances = Some(data.0);
+                self.solid_blocks = Some(data.1);
+                self.block_types = Some(data.2);
+                self.blocks = Some(blockss);
+            },
+            Err(_e) => {},
+        };
+    }
+
+        //changes the block at a position and regenerates meshes and buffers as needed
+    pub fn change_block(&mut self, x: i32, y: i32, z: i32, solid: bool, block_type: u8, device: &dyn DeviceExt) {
+        if self.block_types.is_none() {return}
+        let block_types = self.block_types.as_mut().unwrap();
+        let solid_blocks = self.solid_blocks.as_mut().unwrap();
+        let instances = self.instances.as_mut().unwrap();
+        //return if its not in the world, happens when the raycast goes out of bounds
+        if x < 0 || x >= self.size as i32 || y < 0 || y >= self.size as i32 || z < 0 || z >= self.size as i32 {
+            return;
+        }
+        block_types[index(x as usize, y as usize, z as usize, self.size)] = block_type;
+        let block_index = sides_to_index(get_sides(&solid_blocks, x, y, z, self.size));
+        let mut update_sides = false;
+        let original_solid = *solid_blocks.get(index(x as usize, y as usize, z as usize, self.size)).unwrap();
+        if  original_solid == true && solid == false {
+            instances[block_index].remove(&[x,y,z]);
+            update_sides = true;
+        }
+        if original_solid == true && solid == true {
+            instances[block_index].insert([x, y, z], Instance {
+                position: get_position(x as f32, y as f32, z as f32, BLOCK_SIZE),
+                color: get_color_random(index(x as usize, y as usize, z as usize, self.size).try_into().unwrap(), block_type, 0.5),
+            });
+        }
+        if original_solid == false && solid == true {
+
+            instances[block_index].insert([x, y, z], Instance {
+                position: get_position(x as f32, y as f32, z as f32, BLOCK_SIZE),
+                color: get_color_random(index(x as usize, y as usize, z as usize, self.size).try_into().unwrap(), block_type, 0.5),
+            });
+            update_sides = true;
+        }
+        if update_sides {
+            for offset in [[1,0,0], [-1,0,0], [0,1,0], [0,-1,0], [0,0,1], [0,0,-1]] {
+                if *solid_blocks.get(index((x+offset[0]) as usize, (y+offset[1]) as usize, (z+offset[2]) as usize, self.size)).unwrap() == false {
+                    continue;
+                }
+                //TODO: this code is very weird, explain it, Christopher!
+                let side_index = sides_to_index(get_sides(&solid_blocks, x+offset[0], y+offset[1], z+offset[2], self.size));
+                //
+                *solid_blocks.get_mut(index(x as usize, y as usize, z as usize, self.size)).unwrap() = solid;
+                //
+                let new_sides = get_sides(&solid_blocks, x+offset[0], y+offset[1], z+offset[2], self.size);
+                *solid_blocks.get_mut(index(x as usize, y as usize, z as usize, self.size)).unwrap() = original_solid;
+                instances[side_index].remove(&[x+offset[0], y+offset[1], z+offset[2]]);
+                instances[sides_to_index(new_sides)].insert([x+offset[0], y+offset[1], z+offset[2]], Instance {
+                    position: get_position((x+offset[0]) as f32, (y+offset[1]) as f32, (z+offset[2]) as f32, BLOCK_SIZE),
+                    color: get_color_random(index((x+offset[0]) as usize, (y+offset[1]) as usize, (z+offset[2]) as usize, self.size).try_into().unwrap(), block_types[index((x+offset[0]) as usize, (y+offset[1]) as usize, (z+offset[2]) as usize, self.size)], 0.5),
+                });
+            }
+        }
+        *solid_blocks.get_mut(index(x as usize, y as usize, z as usize, self.size)).unwrap() = solid;
         let mut blockss = Vec::new();
-        //sends each vec of instances to the gpu and puts the buffer into a vec
-        for instance in &instances {
+        for instance in instances {
             let instance_data = instance.values().map(Instance::to_raw).collect::<Vec<_>>();
             let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("Instance Buffer"),
@@ -153,97 +297,26 @@ impl World {
                 num_instances: instance.len(),
             });
         }
-        println!("fr tho it actually took {:?}", SystemTime::now().duration_since(time));
-        World {
-            blocks: blockss,
-            solid_blocks,
-            block_types,
-            size,
-            instances,
-        }
+        self.blocks = Some(blockss);
     }
 
-    //changes the block at a position and regenerates meshes and buffers as needed
-pub fn change_block(&mut self, x: i32, y: i32, z: i32, solid: bool, block_type: u8, device: &dyn DeviceExt) {
-    //return if its not in the world, happens when the raycast goes out of bounds
-    if x < 0 || x >= self.size as i32 || y < 0 || y >= self.size as i32 || z < 0 || z >= self.size as i32 {
-        return;
-    }
-    self.block_types[index(x as usize, y as usize, z as usize, self.size)] = block_type;
-    let block_index = sides_to_index(get_sides(&self.solid_blocks, x, y, z, self.size));
-    let mut update_sides = false;
-    let original_solid = *self.solid_blocks.get(index(x as usize, y as usize, z as usize, self.size)).unwrap();
-    if  original_solid == true && solid == false {
-        self.instances[block_index].remove(&[x,y,z]);
-        update_sides = true;
-    }
-    if original_solid == true && solid == true {
-        self.instances[block_index].insert([x, y, z], Instance {
-            position: get_position(x as f32, y as f32, z as f32, BLOCK_SIZE),
-            color: get_color_random(index(x as usize, y as usize, z as usize, self.size).try_into().unwrap(), block_type, 0.5),
-        });
-    }
-    if original_solid == false && solid == true {
-
-        self.instances[block_index].insert([x, y, z], Instance {
-            position: get_position(x as f32, y as f32, z as f32, BLOCK_SIZE),
-            color: get_color_random(index(x as usize, y as usize, z as usize, self.size).try_into().unwrap(), block_type, 0.5),
-        });
-        update_sides = true;
-    }
-    if update_sides {
-        for offset in [[1,0,0], [-1,0,0], [0,1,0], [0,-1,0], [0,0,1], [0,0,-1]] {
-            if *self.solid_blocks.get(index((x+offset[0]) as usize, (y+offset[1]) as usize, (z+offset[2]) as usize, self.size)).unwrap() == false {
-                continue;
+    //pretty much a basic raycasting function, but it doesn't work very well and I need to redo it soon
+    pub fn raycast(&self, start_pos: Vector3<f32>, dir: Vector3<f32>, max_dist: f32) -> (bool, [i32; 3], u8, Vector3<f32>) {
+        let mut pos = start_pos;
+        while pos.distance(start_pos) <= max_dist && pos.x >= 0.0 && pos.x < self.size as f32 && pos.y >= 0.0 && pos.y < self.size as f32 && pos.z >= 0.0 && pos.z < self.size as f32 {
+            let solid_here = get_solid(&self.solid_blocks.as_ref().unwrap(), pos.x as i32, pos.y as i32, pos.z as i32, self.size);
+            if solid_here {
+                let block_pos = [pos.x as i32, pos.y as i32, pos.z as i32];
+                let block_here = self.block_types.as_ref().unwrap()[index(pos.x as usize, pos.y as usize, pos.z as usize, self.size)];
+                while [pos.x as i32, pos.y as i32, pos.z as i32] == block_pos {
+                    pos -= dir*0.0001;
+                }
+                return (true, block_pos, block_here, Vector3::new(pos.x - block_pos[0] as f32, pos.y - block_pos[1] as f32, pos.z - block_pos[2] as f32).normalize());
             }
-            //TODO: this code is very weird, explain it, Christopher!
-            let side_index = sides_to_index(get_sides(&self.solid_blocks, x+offset[0], y+offset[1], z+offset[2], self.size));
-            //
-            *self.solid_blocks.get_mut(index(x as usize, y as usize, z as usize, self.size)).unwrap() = solid;
-            //
-            let new_sides = get_sides(&self.solid_blocks, x+offset[0], y+offset[1], z+offset[2], self.size);
-            *self.solid_blocks.get_mut(index(x as usize, y as usize, z as usize, self.size)).unwrap() = original_solid;
-            self.instances[side_index].remove(&[x+offset[0], y+offset[1], z+offset[2]]);
-            self.instances[sides_to_index(new_sides)].insert([x+offset[0], y+offset[1], z+offset[2]], Instance {
-                position: get_position((x+offset[0]) as f32, (y+offset[1]) as f32, (z+offset[2]) as f32, BLOCK_SIZE),
-                color: get_color_random(index((x+offset[0]) as usize, (y+offset[1]) as usize, (z+offset[2]) as usize, self.size).try_into().unwrap(), self.block_types[index((x+offset[0]) as usize, (y+offset[1]) as usize, (z+offset[2]) as usize, self.size)], 0.5),
-            });
+            pos += dir;
         }
+        return (false, [pos.x as i32, pos.y as i32, pos.z as i32], 0, Vector3::new(0.0,0.0,0.0));
     }
-    *self.solid_blocks.get_mut(index(x as usize, y as usize, z as usize, self.size)).unwrap() = solid;
-    let mut blockss = Vec::new();
-    for instance in &self.instances {
-        let instance_data = instance.values().map(Instance::to_raw).collect::<Vec<_>>();
-        let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Instance Buffer"),
-            contents: bytemuck::cast_slice(&instance_data),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
-        blockss.push(Blocks {
-            instance_buffer,
-            num_instances: instance.len(),
-        });
-    }
-    self.blocks = blockss;
-}
-
-//pretty much a basic raycasting function, but it doesn't work very well and I need to redo it soon
-pub fn raycast(&self, start_pos: Vector3<f32>, dir: Vector3<f32>, max_dist: f32) -> (bool, [i32; 3], u8, Vector3<f32>) {
-    let mut pos = start_pos;
-    while pos.distance(start_pos) <= max_dist && pos.x >= 0.0 && pos.x < self.size as f32 && pos.y >= 0.0 && pos.y < self.size as f32 && pos.z >= 0.0 && pos.z < self.size as f32 {
-        let solid_here = get_solid(&self.solid_blocks, pos.x as i32, pos.y as i32, pos.z as i32, self.size);
-        if solid_here {
-            let block_pos = [pos.x as i32, pos.y as i32, pos.z as i32];
-            let block_here = self.block_types[index(pos.x as usize, pos.y as usize, pos.z as usize, self.size)];
-            while [pos.x as i32, pos.y as i32, pos.z as i32] == block_pos {
-                pos -= dir*0.0001;
-            }
-            return (true, block_pos, block_here, Vector3::new(pos.x - block_pos[0] as f32, pos.y - block_pos[1] as f32, pos.z - block_pos[2] as f32).normalize());
-        }
-        pos += dir;
-    }
-    return (false, [pos.x as i32, pos.y as i32, pos.z as i32], 0, Vector3::new(0.0,0.0,0.0));
-}
 }
 
 //returns which sides of the block at a given position are visible

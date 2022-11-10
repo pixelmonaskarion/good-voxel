@@ -108,7 +108,9 @@ struct State {
     size: winit::dpi::PhysicalSize<u32>,
     render_pipeline: wgpu::RenderPipeline,
     blocks: Vec<model::Model>,
-    block_ind: block::World,
+    generator: block::Generator,
+    world: block::World,
+    world2: block::World,
     camera: Camera,
     camera_uniform: CameraUniform,
     camera_buffer: wgpu::Buffer,
@@ -268,28 +270,12 @@ impl State {
             // indicates how many array layers the attachments will have.
             multiview: None,
         });
-        /*let mut blocks: Vec<block::Block> = Vec::new();
-        let perlin = Perlin::new();
-        for x in 0..WORLD_SIZE {
-            for y in 0..WORLD_SIZE {
-                for z in 0..WORLD_SIZE {
-                    let val = perlin.get([x as f64 /10.0, y as f64 /10.0, z as f64 /10.0]);
-                    blocks.push(block::Block::new([x, y, z], val > 0.0, &device));
-                }
-            }
-        }
-        for i in 0..WORLD_SIZE*WORLD_SIZE*WORLD_SIZE {
-            let mut block = block::Block::new(blocks[i as usize].pos, blocks[i as usize].solid, &device);
-            block.set_mesh(&blocks, &device);
-            blocks[i as usize] = block;
-        }*/
-        //let mut world = world::World::new(2, 2, 2, &device);
-        //world.lock().unwrap().test();
-        //world.create_mesh(&device);
         let camera_controller = CameraController::new(0.006);
         let blocks = block::create_all_meshes(&device);
         let world_size = 100;
-        let block_ind = block::World::world(world_size, &device);
+        let generator = block::Generator::new();
+        let world = block::World::world(&generator, 0,0,0,world_size, &device, true);
+        let world2 = block::World::world(&generator, 0,world_size as i32 * -1,0,world_size, &device, false);
         let middle = (world_size/ 2) as f32 + 0.5;
         camera.eye = Point3::new(middle, 75.0, middle);
         let time = SystemTime::now();
@@ -300,11 +286,10 @@ impl State {
             config,
             size,
             render_pipeline,
-            //world,
             blocks,
-            block_ind,
-            //diffuse_bind_group,
-            //diffuse_texture,
+            generator,
+            world,
+            world2,
             camera,
             camera_uniform,
             camera_buffer,
@@ -318,7 +303,7 @@ impl State {
         }
     }
     
-    //I don't know how to remove this warning
+    #[allow(unused_mut)]
     fn resize(&mut self, mut new_size: winit::dpi::PhysicalSize<u32>) {
         cfg_if::cfg_if! {
             if #[cfg(target_arch = "wasm32")] {
@@ -403,17 +388,17 @@ impl State {
             Ok(dur) => delta_time-dur.as_millis(),
             Err(_e) => 15,
         };
-        self.camera_controller.update_camera(&mut self.camera, &self.block_ind, delta_time as f32);
+        self.camera_controller.update_camera(&mut self.camera, &self.world, delta_time as f32);
         if self.camera_controller.left_mouse_pressed {
-            let raycast_result = self.block_ind.raycast(Vector3::new(self.camera.eye.x, self.camera.eye.y, self.camera.eye.z), self.camera_controller.get_forward_vec(), 1000.0);
+            let raycast_result = self.world.raycast(Vector3::new(self.camera.eye.x, self.camera.eye.y, self.camera.eye.z), self.camera_controller.get_forward_vec(), 1000.0);
             if raycast_result.0 {
-                self.block_ind.change_block(raycast_result.1[0], raycast_result.1[1], raycast_result.1[2], false, 0, &self.device);
+                self.world.change_block(raycast_result.1[0], raycast_result.1[1], raycast_result.1[2], false, 0, &self.device);
             }
         }
         if self.camera_controller.right_mouse_pressed {
-            let raycast_result = self.block_ind.raycast(Vector3::new(self.camera.eye.x, self.camera.eye.y, self.camera.eye.z), self.camera_controller.get_forward_vec(), 1000.0);
+            let raycast_result = self.world.raycast(Vector3::new(self.camera.eye.x, self.camera.eye.y, self.camera.eye.z), self.camera_controller.get_forward_vec(), 1000.0);
             if raycast_result.0 {
-                self.block_ind.change_block((raycast_result.1[0] as f32 + raycast_result.3.x) as i32, (raycast_result.1[1] as f32 + raycast_result.3.y) as i32, (raycast_result.1[2] as f32 + raycast_result.3.z) as i32, true, 0, &self.device);
+                self.world.change_block((raycast_result.1[0] as f32 + raycast_result.3.x) as i32, (raycast_result.1[1] as f32 + raycast_result.3.y) as i32, (raycast_result.1[2] as f32 + raycast_result.3.z) as i32, true, 0, &self.device);
             }
         }
         self.camera_uniform.update_view_proj(&self.camera);
@@ -422,6 +407,8 @@ impl State {
             0,
             bytemuck::cast_slice(&[self.camera_uniform]),
         );
+
+        self.world2.try_finish(&self.device);
 
         //self.world.load_around([self.camera.eye.x, self.camera.eye.y, self.camera.eye.z], self.first_frame, &self.device);
         self.first_frame = false;
@@ -466,47 +453,23 @@ impl State {
             render_pass.set_pipeline(&self.render_pipeline);
             //render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]); // NEW!
             render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
-
+            let blocks = self.world.blocks.as_ref();
+            let blocks2 = self.world2.blocks.as_ref();
             for i in 0..64 {
                 //println!("buffer {} has length {}", i, self.block_ind[i].num_instances);
-                render_pass.set_vertex_buffer(0, self.blocks[i].vertex_buffer.slice(..));
-                render_pass.set_vertex_buffer(1, self.block_ind.blocks[i].instance_buffer.slice(..));
-                render_pass.set_index_buffer(self.blocks[i].index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-                render_pass.draw_indexed(0..self.blocks[i].num_indices, 0, 0..self.block_ind.blocks[i].num_instances as u32);
+                if self.world.blocks.is_some() {
+                    render_pass.set_vertex_buffer(0, self.blocks[i].vertex_buffer.slice(..));
+                    render_pass.set_vertex_buffer(1, blocks.unwrap()[i].instance_buffer.slice(..));
+                    render_pass.set_index_buffer(self.blocks[i].index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+                    render_pass.draw_indexed(0..self.blocks[i].num_indices, 0, 0..blocks.unwrap()[i].num_instances as u32);
+                }
+                if self.world2.blocks.is_some() {
+                    render_pass.set_vertex_buffer(0, self.blocks[i].vertex_buffer.slice(..));
+                    render_pass.set_vertex_buffer(1, blocks2.unwrap()[i].instance_buffer.slice(..));
+                    render_pass.set_index_buffer(self.blocks[i].index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+                    render_pass.draw_indexed(0..self.blocks[i].num_indices, 0, 0..blocks2.unwrap()[i].num_instances as u32);
+                }
             }
-            /*for i in 0..self.world.loaded_chunks.len() {
-                //println!("drawing chunk {}", i);
-                if self.world.loaded_chunks[i].model.is_some() {
-                    let model = self.world.loaded_chunks[i].model.as_ref().unwrap();
-                    render_pass.set_vertex_buffer(0, model.vertex_buffer.slice(..));
-                    render_pass.set_vertex_buffer(1, self.world.loaded_chunks[i].instance_buffer.as_ref().unwrap().slice(..));
-                    render_pass.set_index_buffer(model.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-    
-                    render_pass.draw_indexed(0..model.num_indices, 0, 0..1);
-                }
-            }*/
-            //self.block.render(&mut render_pass);
-            /*
-            FROM DRAWING INDIVIDUAL BLOCKS
-            for x in 0..WORLD_SIZE {
-                for y in 0..WORLD_SIZE {
-                    for z in 0..WORLD_SIZE {
-                        let i = ((x * WORLD_SIZE * WORLD_SIZE) + (y*WORLD_SIZE) + z) as usize;
-                        render_pass.set_vertex_buffer(0, self.blocks[i].model.vertex_buffer.slice(..));
-                        render_pass.set_vertex_buffer(1, self.blocks[i].instance_buffer.slice(..));
-                        //render_pass.set_index_buffer(self.blocks[i].model.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-
-                        //render_pass.draw_indexed(0..self.blocks[i].model.num_indices, 0, 0..1);
-                        render_pass.draw(0..self.blocks[i].model.num_vertices, 0..1);
-                    }
-                }
-            }*/
-            /*render_pass.set_vertex_buffer(0, self.model.vertex_buffer.slice(..));
-            render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
-            render_pass.set_index_buffer(self.model.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-
-            // UPDATED!
-            render_pass.draw_indexed(0..self.model.num_indices, 0, 0..self.instances.len() as _);*/
         }
         // submit will accept anything that implements IntoIter
         self.queue.submit(std::iter::once(encoder.finish()));
