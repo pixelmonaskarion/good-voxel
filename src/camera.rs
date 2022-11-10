@@ -1,11 +1,13 @@
+use std::collections::HashMap;
+
 use cgmath::{Vector3, Point3};
 use winit::{
     event::*,
 };
 
-use crate::block;
+use crate::block::{self, CHUNK_SIZE};
 
-pub const GM: i32 = 1;
+pub const GM: i32 = 0;
 
 #[rustfmt::skip]
 pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
@@ -188,7 +190,7 @@ impl CameraController {
         self.sky -= y/200.0;
     }
 
-    pub fn update_camera(&mut self, camera: &mut Camera, world: &block::World, delta_time: f32) {
+    pub fn update_camera(&mut self, camera: &mut Camera, worlds: &HashMap<[i32; 3], block::World>, delta_time: f32) {
         if self.right_pressed {
             self.ground += 10.0*self.speed*delta_time * std::f32::consts::PI/180.0;
         }
@@ -209,17 +211,17 @@ impl CameraController {
         //let forward_norm = forward.normalize();
         //let forward_mag = forward.magnitude();
         if self.w_pressed {
-            move_camera(cgmath::Vector3::new(self.ground.cos(), 0.0, self.ground.sin()) * self.speed*delta_time, camera, world);
+            move_camera(cgmath::Vector3::new(self.ground.cos(), 0.0, self.ground.sin()) * self.speed*delta_time, camera, worlds);
         }
         if self.s_pressed {
-            move_camera(cgmath::Vector3::new(self.ground.cos(), 0.0, self.ground.sin()) * self.speed*delta_time*-1.0, camera, world);
+            move_camera(cgmath::Vector3::new(self.ground.cos(), 0.0, self.ground.sin()) * self.speed*delta_time*-1.0, camera, worlds);
         }
         let right = cgmath::Vector3::new(self.ground.cos(), 0.0, self.ground.sin()).cross(camera.up);
         if self.a_pressed {
-            move_camera(right * self.speed*delta_time*-1.0, camera, world);
+            move_camera(right * self.speed*delta_time*-1.0, camera, worlds);
         }
         if self.d_pressed {
-            move_camera(right * self.speed*delta_time, camera, world);
+            move_camera(right * self.speed*delta_time, camera, worlds);
         }
         if self.space_pressed {
             if GM == 0 {
@@ -227,12 +229,12 @@ impl CameraController {
                     self.sy = 0.2;
                 }
             } else {
-                move_camera(cgmath::Vector3::unit_y() * self.speed*delta_time, camera, world);
+                move_camera(cgmath::Vector3::unit_y() * self.speed*delta_time, camera, worlds);
             }
         }
         if self.shift_pressed {
             if GM == 1 {
-                move_camera(cgmath::Vector3::unit_y() * self.speed*delta_time * -1.0, camera, world);
+                move_camera(cgmath::Vector3::unit_y() * self.speed*delta_time * -1.0, camera, worlds);
             }
         }
 
@@ -241,7 +243,7 @@ impl CameraController {
         }
         self.in_air += 1;
         //println!("{}", delta_time);
-        if move_camera(Vector3 { x: 0.0, y: self.sy, z: 0.0 }, camera, world) {
+        if move_camera(Vector3 { x: 0.0, y: self.sy, z: 0.0 }, camera, worlds) {
             self.sy = 0.0;
             self.in_air = 0;
         }
@@ -271,54 +273,57 @@ impl CameraController {
     }
     
 }
-fn move_camera(vec: Vector3<f32>, camera: &mut Camera, world: &block::World) -> bool {
-    return move_camera_x(vec.x, camera, world) || move_camera_y(vec.y, camera, world) || move_camera_z(vec.z, camera, world);
+fn move_camera(vec: Vector3<f32>, camera: &mut Camera, worlds: &HashMap<[i32; 3], block::World>) -> bool {
+    return move_camera_x(vec.x, camera, worlds) || move_camera_y(vec.y, camera, worlds) || move_camera_z(vec.z, camera, worlds);
 }
 
-fn move_camera_x(x: f32, camera: &mut Camera, world: &block::World) -> bool {
-    let in_at_start = get_in_block(camera.eye, world, false);
+fn move_camera_x(x: f32, camera: &mut Camera, worlds: &HashMap<[i32; 3], block::World>) -> bool {
+    let in_at_start = get_in_block(camera.eye, worlds);
     camera.eye.x += x;
     let mut collided = false;
-    while get_in_block(camera.eye, world, false) && !in_at_start {
+    while get_in_block(camera.eye, worlds) && !in_at_start {
         camera.eye.x -= x*0.01;
         collided = true;
     }
     return collided;
 }
 
-fn move_camera_y(y: f32, camera: &mut Camera, world: &block::World) -> bool {
-    let in_at_start = get_in_block(camera.eye, world, false);
+fn move_camera_y(y: f32, camera: &mut Camera, worlds: &HashMap<[i32; 3], block::World>) -> bool {
+    let in_at_start = get_in_block(camera.eye, worlds);
     camera.eye.y += y;
     let mut collided = false;
-    while get_in_block(camera.eye, world, false) && !in_at_start {
+    while get_in_block(camera.eye, worlds) && !in_at_start {
         camera.eye.y -= y*0.01;
         collided = true;
     }
     return collided;
 }
 
-fn move_camera_z(z: f32, camera: &mut Camera, world: &block::World) -> bool {
-    let in_at_start = get_in_block(camera.eye, world, false);
+fn move_camera_z(z: f32, camera: &mut Camera, worlds: &HashMap<[i32; 3], block::World>) -> bool {
+    let in_at_start = get_in_block(camera.eye, worlds);
     camera.eye.z += z;
     let mut collided = false;
-    while get_in_block(camera.eye, world, false) && !in_at_start {
+    while get_in_block(camera.eye, worlds) && !in_at_start {
         camera.eye.z -= z*0.01;
         collided = true;
     }
     return collided;
 }
 
-fn get_in_block(pos: Point3<f32>, world: &block::World, force_bounds: bool) -> bool {
+fn get_in_block(pos: Point3<f32>, worlds: &HashMap<[i32; 3], block::World>) -> bool {
     if GM == 1 {
         return false;
     }
-    if pos.x >= world.size as f32 || pos.x < 0.0 || pos.y >= world.size as f32 || pos.y < 0.0 || pos.z >= world.size as f32 || pos.z < 0.0 {
-        return force_bounds;
-    }
     for offset in [Vector3::new(0.4 as f32, 0.4, 0.4), Vector3::new(0.4 as f32, 0.4, -0.4), Vector3::new(-0.4 as f32, 0.4, 0.4), Vector3::new(-0.4 as f32, 0.4, -0.4), Vector3::new(0.4 as f32, -1.5, 0.4), Vector3::new(0.4 as f32, -1.5, -0.4), Vector3::new(-0.4 as f32, -1.5, 0.4), Vector3::new(-0.4 as f32, -1.5, -0.4)] {
+        let world_pos = block::get_chunk_pos((pos+offset).x as i32, (pos+offset).y as i32, (pos+offset).z as i32, CHUNK_SIZE);
+        let world = worlds.get(&world_pos.0);
+        if world.is_none() {
+            continue;
+        }
+        let world = world.unwrap();
         if world.solid_blocks.is_some() {
             let solid_blocks = world.solid_blocks.as_ref().unwrap();
-            let block = solid_blocks.get(block::index((pos+offset).x as usize, (pos+offset).y as usize, (pos+offset).z as usize, world.size));
+            let block = solid_blocks.get(block::index(world_pos.1[0] as usize, world_pos.1[1] as usize, world_pos.1[2] as usize, CHUNK_SIZE));
             if block.is_some() {
                 if *block.unwrap() == true {
                     return true;

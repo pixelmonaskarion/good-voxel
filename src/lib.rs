@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use cgmath::{Point3, Vector3};
 use winit::{
     event::*,
@@ -109,8 +111,8 @@ struct State {
     render_pipeline: wgpu::RenderPipeline,
     blocks: Vec<model::Model>,
     generator: block::Generator,
-    world: block::World,
-    world2: block::World,
+    //world: block::World,
+    worlds: HashMap<[i32; 3], block::World>,
     camera: Camera,
     camera_uniform: CameraUniform,
     camera_buffer: wgpu::Buffer,
@@ -275,7 +277,12 @@ impl State {
         let world_size = 100;
         let generator = block::Generator::new();
         let world = block::World::world(&generator, 0,0,0,world_size, &device, true);
-        let world2 = block::World::world(&generator, 0,world_size as i32 * -1,0,world_size, &device, false);
+        //let world2 = block::World::world(&generator, 0,world_size as i32 * -1,0,world_size, &device, false);
+        let mut worlds: HashMap<[i32; 3], block::World> = HashMap::new();
+        worlds.insert([0,0,0], world);
+        for pos in [[1,0,0], [-1,0,0], [0,0,1], [0,0,-1]] {
+            worlds.insert(pos, block::World::world(&generator, pos[0]*world_size as i32, pos[1]*world_size as i32, pos[2]*world_size as i32, world_size, &device, false));
+        }
         let middle = (world_size/ 2) as f32 + 0.5;
         camera.eye = Point3::new(middle, 75.0, middle);
         let time = SystemTime::now();
@@ -288,8 +295,8 @@ impl State {
             render_pipeline,
             blocks,
             generator,
-            world,
-            world2,
+            //world,
+            worlds,
             camera,
             camera_uniform,
             camera_buffer,
@@ -388,17 +395,17 @@ impl State {
             Ok(dur) => delta_time-dur.as_millis(),
             Err(_e) => 15,
         };
-        self.camera_controller.update_camera(&mut self.camera, &self.world, delta_time as f32);
+        self.camera_controller.update_camera(&mut self.camera, &self.worlds, delta_time as f32);
         if self.camera_controller.left_mouse_pressed {
-            let raycast_result = self.world.raycast(Vector3::new(self.camera.eye.x, self.camera.eye.y, self.camera.eye.z), self.camera_controller.get_forward_vec(), 1000.0);
+            let raycast_result = self.worlds.get(&[0,0,0]).unwrap().raycast(Vector3::new(self.camera.eye.x, self.camera.eye.y, self.camera.eye.z), self.camera_controller.get_forward_vec(), 1000.0);
             if raycast_result.0 {
-                self.world.change_block(raycast_result.1[0], raycast_result.1[1], raycast_result.1[2], false, 0, &self.device);
+                self.worlds.get_mut(&[0,0,0]).unwrap().change_block(raycast_result.1[0], raycast_result.1[1], raycast_result.1[2], false, 0, &self.device);
             }
         }
         if self.camera_controller.right_mouse_pressed {
-            let raycast_result = self.world.raycast(Vector3::new(self.camera.eye.x, self.camera.eye.y, self.camera.eye.z), self.camera_controller.get_forward_vec(), 1000.0);
+            let raycast_result = self.worlds.get(&[0,0,0]).unwrap().raycast(Vector3::new(self.camera.eye.x, self.camera.eye.y, self.camera.eye.z), self.camera_controller.get_forward_vec(), 1000.0);
             if raycast_result.0 {
-                self.world.change_block((raycast_result.1[0] as f32 + raycast_result.3.x) as i32, (raycast_result.1[1] as f32 + raycast_result.3.y) as i32, (raycast_result.1[2] as f32 + raycast_result.3.z) as i32, true, 0, &self.device);
+                self.worlds.get_mut(&[0,0,0]).unwrap().change_block((raycast_result.1[0] as f32 + raycast_result.3.x) as i32, (raycast_result.1[1] as f32 + raycast_result.3.y) as i32, (raycast_result.1[2] as f32 + raycast_result.3.z) as i32, true, 0, &self.device);
             }
         }
         self.camera_uniform.update_view_proj(&self.camera);
@@ -407,8 +414,9 @@ impl State {
             0,
             bytemuck::cast_slice(&[self.camera_uniform]),
         );
-
-        self.world2.try_finish(&self.device);
+        for world in &mut self.worlds {
+            world.1.try_finish(&self.device);
+        }
 
         //self.world.load_around([self.camera.eye.x, self.camera.eye.y, self.camera.eye.z], self.first_frame, &self.device);
         self.first_frame = false;
@@ -453,21 +461,23 @@ impl State {
             render_pass.set_pipeline(&self.render_pipeline);
             //render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]); // NEW!
             render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
-            let blocks = self.world.blocks.as_ref();
-            let blocks2 = self.world2.blocks.as_ref();
+            //let blocks = self.world.blocks.as_ref();
+            //let blocks2 = self.world2.blocks.as_ref();
             for i in 0..64 {
                 //println!("buffer {} has length {}", i, self.block_ind[i].num_instances);
-                if self.world.blocks.is_some() {
+                /*if self.world.blocks.is_some() {
                     render_pass.set_vertex_buffer(0, self.blocks[i].vertex_buffer.slice(..));
                     render_pass.set_vertex_buffer(1, blocks.unwrap()[i].instance_buffer.slice(..));
                     render_pass.set_index_buffer(self.blocks[i].index_buffer.slice(..), wgpu::IndexFormat::Uint16);
                     render_pass.draw_indexed(0..self.blocks[i].num_indices, 0, 0..blocks.unwrap()[i].num_instances as u32);
-                }
-                if self.world2.blocks.is_some() {
-                    render_pass.set_vertex_buffer(0, self.blocks[i].vertex_buffer.slice(..));
-                    render_pass.set_vertex_buffer(1, blocks2.unwrap()[i].instance_buffer.slice(..));
-                    render_pass.set_index_buffer(self.blocks[i].index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-                    render_pass.draw_indexed(0..self.blocks[i].num_indices, 0, 0..blocks2.unwrap()[i].num_instances as u32);
+                }*/
+                for world in self.worlds.values().into_iter() {
+                    if world.blocks.is_some() {
+                        render_pass.set_vertex_buffer(0, self.blocks[i].vertex_buffer.slice(..));
+                        render_pass.set_vertex_buffer(1, world.blocks.as_ref().unwrap()[i].instance_buffer.slice(..));
+                        render_pass.set_index_buffer(self.blocks[i].index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+                        render_pass.draw_indexed(0..self.blocks[i].num_indices, 0, 0..world.blocks.as_ref().unwrap()[i].num_instances as u32);
+                    }
                 }
             }
         }
@@ -617,10 +627,12 @@ pub async fn run() {
 
 #[test]
 fn test_side_indices() {
-    use std::mem;
     assert_eq!(block::sides_to_index([false; 6]), 0);
     assert_eq!(block::sides_to_index([true; 6]), 63);
     assert_eq!(block::number_to_bits(0), [false; 6]);
-    //println!("SIZE OF VERTEX: {}", mem::size_of::<Vertex>());
-    assert_eq!(mem::size_of::<Instance>(), 1);
+
+    assert_eq!(block::get_chunk_pos(0, 0, 0, 100), ([0,0,0], [0,0,0]));
+    assert_eq!(block::get_chunk_pos(50, 0, 0, 100), ([0,0,0], [50,0,0]));
+    assert_eq!(block::get_chunk_pos(-50, 0, 0, 100), ([-1,0,0], [50,0,0]));
+    assert_eq!(block::get_chunk_pos(-150, 75, 0, 100), ([-2,0,0], [50,75,0]));
 }

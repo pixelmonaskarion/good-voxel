@@ -20,6 +20,7 @@ use mockall::predicate::*;
 use mockall::*;
 
 pub const BLOCK_SIZE: f32 = 1.0;
+pub const CHUNK_SIZE: usize = 100;
 
 //holds the basic model of a cube, all sides shown
 pub const VERTICES: &[Vertex] = &[
@@ -119,7 +120,7 @@ impl World {
                     let exact_y = y as i32 + wy;
                     //ground or sky?
                     #[allow(unused_mut)]
-                    let mut solid = (exact_y as f32) < (height+1.0) as f32 *50.0 && generator_moved.cave_noise.get([exact_x as f64/ 30.0, exact_y as f64/ 30.0, exact_z as f64/ 30.0]) < 0.1;
+                    let mut solid = (exact_y as f32) < (height+1.0) as f32 *50.0 && generator_moved.cave_noise.get([exact_x as f64/ 30.0, exact_y as f64/ 30.0, exact_z as f64/ 30.0]) < 0.4;
                     //is it ten blocks underneath the surface?
                     if (exact_y as f32 + 10.0) < (height+1.0) as f32 *50.0 {
                         //solid if in a cave
@@ -134,7 +135,7 @@ impl World {
                     *solid_blocks.get_mut(index(x, y, z, size)).unwrap() = solid;
                 }
             }
-            println!("Generating {}%", ((x as f32 +1.0)/size as f32)*100.0);
+            //println!("Generating {}%", ((x as f32 +1.0)/size as f32)*100.0);
         }
         //let (tx, rx) = channel();
         //loops over every block and instances it
@@ -165,7 +166,7 @@ impl World {
                     }
                 }
             //});
-            println!("Instancing {}%", ((x as f32 +1.0)/size as f32)*100.0);
+            //println!("Instancing {}%", ((x as f32 +1.0)/size as f32)*100.0);
         }
         println!("took {:?}", SystemTime::now().duration_since(time));
         let _result = tx.send((instances, solid_blocks, block_types));
@@ -239,13 +240,13 @@ impl World {
         let solid_blocks = self.solid_blocks.as_mut().unwrap();
         let instances = self.instances.as_mut().unwrap();
         //return if its not in the world, happens when the raycast goes out of bounds
-        if x < 0 || x >= self.size as i32 || y < 0 || y >= self.size as i32 || z < 0 || z >= self.size as i32 {
+        if x < 0 || x >= CHUNK_SIZE as i32 || y < 0 || y >= CHUNK_SIZE as i32 || z < 0 || z >= CHUNK_SIZE as i32 {
             return;
         }
-        block_types[index(x as usize, y as usize, z as usize, self.size)] = block_type;
-        let block_index = sides_to_index(get_sides(&solid_blocks, x, y, z, self.size));
+        block_types[index(x as usize, y as usize, z as usize, CHUNK_SIZE)] = block_type;
+        let block_index = sides_to_index(get_sides(&solid_blocks, x, y, z, CHUNK_SIZE));
         let mut update_sides = false;
-        let original_solid = *solid_blocks.get(index(x as usize, y as usize, z as usize, self.size)).unwrap();
+        let original_solid = *solid_blocks.get(index(x as usize, y as usize, z as usize, CHUNK_SIZE)).unwrap();
         if  original_solid == true && solid == false {
             instances[block_index].remove(&[x,y,z]);
             update_sides = true;
@@ -253,37 +254,37 @@ impl World {
         if original_solid == true && solid == true {
             instances[block_index].insert([x, y, z], Instance {
                 position: get_position(x as f32, y as f32, z as f32, BLOCK_SIZE),
-                color: get_color_random(index(x as usize, y as usize, z as usize, self.size).try_into().unwrap(), block_type, 0.5),
+                color: get_color_random(index(x as usize, y as usize, z as usize, CHUNK_SIZE).try_into().unwrap(), block_type, 0.5),
             });
         }
         if original_solid == false && solid == true {
 
             instances[block_index].insert([x, y, z], Instance {
                 position: get_position(x as f32, y as f32, z as f32, BLOCK_SIZE),
-                color: get_color_random(index(x as usize, y as usize, z as usize, self.size).try_into().unwrap(), block_type, 0.5),
+                color: get_color_random(index(x as usize, y as usize, z as usize, CHUNK_SIZE).try_into().unwrap(), block_type, 0.5),
             });
             update_sides = true;
         }
         if update_sides {
             for offset in [[1,0,0], [-1,0,0], [0,1,0], [0,-1,0], [0,0,1], [0,0,-1]] {
-                if *solid_blocks.get(index((x+offset[0]) as usize, (y+offset[1]) as usize, (z+offset[2]) as usize, self.size)).unwrap() == false {
+                if *solid_blocks.get(index((x+offset[0]) as usize, (y+offset[1]) as usize, (z+offset[2]) as usize, CHUNK_SIZE)).unwrap() == false {
                     continue;
                 }
                 //TODO: this code is very weird, explain it, Christopher!
-                let side_index = sides_to_index(get_sides(&solid_blocks, x+offset[0], y+offset[1], z+offset[2], self.size));
+                let side_index = sides_to_index(get_sides(&solid_blocks, x+offset[0], y+offset[1], z+offset[2], CHUNK_SIZE));
                 //
-                *solid_blocks.get_mut(index(x as usize, y as usize, z as usize, self.size)).unwrap() = solid;
+                *solid_blocks.get_mut(index(x as usize, y as usize, z as usize, CHUNK_SIZE)).unwrap() = solid;
                 //
-                let new_sides = get_sides(&solid_blocks, x+offset[0], y+offset[1], z+offset[2], self.size);
-                *solid_blocks.get_mut(index(x as usize, y as usize, z as usize, self.size)).unwrap() = original_solid;
+                let new_sides = get_sides(&solid_blocks, x+offset[0], y+offset[1], z+offset[2], CHUNK_SIZE);
+                *solid_blocks.get_mut(index(x as usize, y as usize, z as usize, CHUNK_SIZE)).unwrap() = original_solid;
                 instances[side_index].remove(&[x+offset[0], y+offset[1], z+offset[2]]);
                 instances[sides_to_index(new_sides)].insert([x+offset[0], y+offset[1], z+offset[2]], Instance {
                     position: get_position((x+offset[0]) as f32, (y+offset[1]) as f32, (z+offset[2]) as f32, BLOCK_SIZE),
-                    color: get_color_random(index((x+offset[0]) as usize, (y+offset[1]) as usize, (z+offset[2]) as usize, self.size).try_into().unwrap(), block_types[index((x+offset[0]) as usize, (y+offset[1]) as usize, (z+offset[2]) as usize, self.size)], 0.5),
+                    color: get_color_random(index((x+offset[0]) as usize, (y+offset[1]) as usize, (z+offset[2]) as usize, CHUNK_SIZE).try_into().unwrap(), block_types[index((x+offset[0]) as usize, (y+offset[1]) as usize, (z+offset[2]) as usize, CHUNK_SIZE)], 0.5),
                 });
             }
         }
-        *solid_blocks.get_mut(index(x as usize, y as usize, z as usize, self.size)).unwrap() = solid;
+        *solid_blocks.get_mut(index(x as usize, y as usize, z as usize, CHUNK_SIZE)).unwrap() = solid;
         let mut blockss = Vec::new();
         for instance in instances {
             let instance_data = instance.values().map(Instance::to_raw).collect::<Vec<_>>();
@@ -303,11 +304,11 @@ impl World {
     //pretty much a basic raycasting function, but it doesn't work very well and I need to redo it soon
     pub fn raycast(&self, start_pos: Vector3<f32>, dir: Vector3<f32>, max_dist: f32) -> (bool, [i32; 3], u8, Vector3<f32>) {
         let mut pos = start_pos;
-        while pos.distance(start_pos) <= max_dist && pos.x >= 0.0 && pos.x < self.size as f32 && pos.y >= 0.0 && pos.y < self.size as f32 && pos.z >= 0.0 && pos.z < self.size as f32 {
-            let solid_here = get_solid(&self.solid_blocks.as_ref().unwrap(), pos.x as i32, pos.y as i32, pos.z as i32, self.size);
+        while pos.distance(start_pos) <= max_dist && pos.x >= 0.0 && pos.x < CHUNK_SIZE as f32 && pos.y >= 0.0 && pos.y < CHUNK_SIZE as f32 && pos.z >= 0.0 && pos.z < CHUNK_SIZE as f32 {
+            let solid_here = get_solid(&self.solid_blocks.as_ref().unwrap(), pos.x as i32, pos.y as i32, pos.z as i32, CHUNK_SIZE);
             if solid_here {
                 let block_pos = [pos.x as i32, pos.y as i32, pos.z as i32];
-                let block_here = self.block_types.as_ref().unwrap()[index(pos.x as usize, pos.y as usize, pos.z as usize, self.size)];
+                let block_here = self.block_types.as_ref().unwrap()[index(pos.x as usize, pos.y as usize, pos.z as usize, CHUNK_SIZE)];
                 while [pos.x as i32, pos.y as i32, pos.z as i32] == block_pos {
                     pos -= dir*0.0001;
                 }
@@ -322,6 +323,30 @@ impl World {
 //returns which sides of the block at a given position are visible
 pub fn get_sides(solid_blocks: &BitVec, x: i32, y: i32, z: i32, size: usize) -> [bool; 6] {
     [!get_solid(solid_blocks, x, y+1, z, size), !get_solid(solid_blocks, x, y-1, z, size), !get_solid(solid_blocks, x+1, y, z, size), !get_solid(solid_blocks, x-1, y, z, size), !get_solid(solid_blocks, x, y, z+1, size), !get_solid(solid_blocks, x, y, z-1, size)]
+}
+
+pub fn get_chunk_pos(x: i32, y: i32, z: i32, size: usize) -> ([i32; 3], [i32; 3]){
+    let mut block_x = x%size as i32;
+    let mut block_y = y%size as i32;
+    let mut block_z = z%size as i32;
+
+    let mut chunk_x = x/size as i32;
+    let mut chunk_y = y/size as i32;
+    let mut chunk_z = z/size as i32;
+    if block_x < 0 {
+        chunk_x -= 1;
+        block_x += size as i32;
+    }
+    if block_y < 0 {
+        chunk_y -= 1;
+        block_y += size as i32;
+    }
+    if block_z < 0 {
+        chunk_z -= 1;
+        block_z += size as i32;
+    }
+
+    return ([chunk_x, chunk_y, chunk_z], [block_x, block_y, block_z]);
 }
 
 //gets the block color, and adds some random darkness to it
