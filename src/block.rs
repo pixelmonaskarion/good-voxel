@@ -70,6 +70,8 @@ pub struct World {
     pub size: usize,
     pub instances: Option<Vec<HashMap<[i32; 3], Instance>>>,
     pub receiver: Receiver<(Vec<HashMap<[i32; 3], Instance>>, BitVec<usize, Lsb0>, Vec<u8>)>,
+    pub pos: [i32; 3],
+    pub finished: bool,
 }
 
 #[derive(Clone)]
@@ -194,6 +196,8 @@ impl World {
                 size,
                 instances: Some(data.0),
                 receiver: rx,
+                pos: [wx, wy, wz],
+                finished: true,
             };
         }
         //println!("fr tho it actually took {:?}", SystemTime::now().duration_since(time));
@@ -204,6 +208,8 @@ impl World {
             size,
             instances: None,
             receiver: rx,
+            pos: [wx, wy, wz],
+            finished: false,
         };
     }
 
@@ -228,6 +234,7 @@ impl World {
                 self.solid_blocks = Some(data.1);
                 self.block_types = Some(data.2);
                 self.blocks = Some(blockss);
+                self.finished = true;
             },
             Err(_e) => {},
         };
@@ -279,7 +286,7 @@ impl World {
                 *solid_blocks.get_mut(index(x as usize, y as usize, z as usize, CHUNK_SIZE)).unwrap() = original_solid;
                 instances[side_index].remove(&[x+offset[0], y+offset[1], z+offset[2]]);
                 instances[sides_to_index(new_sides)].insert([x+offset[0], y+offset[1], z+offset[2]], Instance {
-                    position: get_position((x+offset[0]) as f32, (y+offset[1]) as f32, (z+offset[2]) as f32, BLOCK_SIZE),
+                    position: get_position((x+offset[0]+self.pos[0]) as f32, (y+offset[1]+self.pos[1]) as f32, (z+offset[2]+self.pos[2]) as f32, BLOCK_SIZE),
                     color: get_color_random(index((x+offset[0]) as usize, (y+offset[1]) as usize, (z+offset[2]) as usize, CHUNK_SIZE).try_into().unwrap(), block_types[index((x+offset[0]) as usize, (y+offset[1]) as usize, (z+offset[2]) as usize, CHUNK_SIZE)], 0.5),
                 });
             }
@@ -302,22 +309,28 @@ impl World {
     }
 
     //pretty much a basic raycasting function, but it doesn't work very well and I need to redo it soon
-    pub fn raycast(&self, start_pos: Vector3<f32>, dir: Vector3<f32>, max_dist: f32) -> (bool, [i32; 3], u8, Vector3<f32>) {
-        let mut pos = start_pos;
-        while pos.distance(start_pos) <= max_dist && pos.x >= 0.0 && pos.x < CHUNK_SIZE as f32 && pos.y >= 0.0 && pos.y < CHUNK_SIZE as f32 && pos.z >= 0.0 && pos.z < CHUNK_SIZE as f32 {
-            let solid_here = get_solid(&self.solid_blocks.as_ref().unwrap(), pos.x as i32, pos.y as i32, pos.z as i32, CHUNK_SIZE);
-            if solid_here {
-                let block_pos = [pos.x as i32, pos.y as i32, pos.z as i32];
-                let block_here = self.block_types.as_ref().unwrap()[index(pos.x as usize, pos.y as usize, pos.z as usize, CHUNK_SIZE)];
-                while [pos.x as i32, pos.y as i32, pos.z as i32] == block_pos {
-                    pos -= dir*0.0001;
+}
+
+pub fn raycast(start_pos: Vector3<f32>, dir: Vector3<f32>, max_dist: f32, worlds: &HashMap<[i32; 3], World>) -> (bool, [i32; 3], u8, Vector3<f32>) {
+    let mut pos = start_pos;
+    while pos.distance(start_pos) <= max_dist {
+        let world_pos = get_chunk_pos(pos.x as i32, pos.y as i32, pos.z as i32, CHUNK_SIZE);
+        if worlds.contains_key(&world_pos.0) {
+            if worlds.get(&world_pos.0).unwrap().finished {
+                let solid_here = get_solid(&worlds.get(&world_pos.0).unwrap().solid_blocks.as_ref().unwrap(), world_pos.1[0], world_pos.1[1], world_pos.1[2], CHUNK_SIZE);
+                if solid_here {
+                    let block_pos = [pos.x as i32, pos.y as i32, pos.z as i32];
+                    let block_here = worlds.get(&world_pos.0).unwrap().block_types.as_ref().unwrap()[index(pos.x as usize, pos.y as usize, pos.z as usize, CHUNK_SIZE)];
+                    while [pos.x as i32, pos.y as i32, pos.z as i32] == block_pos {
+                        pos -= dir*0.0001;
+                    }
+                    return (true, block_pos, block_here, Vector3::new(pos.x - block_pos[0] as f32, pos.y - block_pos[1] as f32, pos.z - block_pos[2] as f32).normalize());
                 }
-                return (true, block_pos, block_here, Vector3::new(pos.x - block_pos[0] as f32, pos.y - block_pos[1] as f32, pos.z - block_pos[2] as f32).normalize());
             }
-            pos += dir;
         }
-        return (false, [pos.x as i32, pos.y as i32, pos.z as i32], 0, Vector3::new(0.0,0.0,0.0));
+        pos += dir;
     }
+    return (false, [pos.x as i32, pos.y as i32, pos.z as i32], 0, Vector3::new(0.0,0.0,0.0));
 }
 
 //returns which sides of the block at a given position are visible
@@ -335,15 +348,15 @@ pub fn get_chunk_pos(x: i32, y: i32, z: i32, size: usize) -> ([i32; 3], [i32; 3]
     let mut chunk_z = z/size as i32;
     if block_x < 0 {
         chunk_x -= 1;
-        block_x += size as i32;
+        block_x += size as i32 - 1;
     }
     if block_y < 0 {
         chunk_y -= 1;
-        block_y += size as i32;
+        block_y += size as i32 - 1;
     }
     if block_z < 0 {
         chunk_z -= 1;
-        block_z += size as i32;
+        block_z += size as i32 - 1;
     }
 
     return ([chunk_x, chunk_y, chunk_z], [block_x, block_y, block_z]);

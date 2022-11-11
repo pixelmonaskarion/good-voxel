@@ -86,6 +86,8 @@ impl CameraController {
     pub fn new(mut speed: f32) -> Self {
         if GM == 1 {
             speed = speed*5.0;
+        } else {
+            speed = speed*5.0;
         }
         Self {
             speed,

@@ -397,17 +397,18 @@ impl State {
         };
         self.camera_controller.update_camera(&mut self.camera, &self.worlds, delta_time as f32);
         if self.camera_controller.left_mouse_pressed {
-            let raycast_result = self.worlds.get(&[0,0,0]).unwrap().raycast(Vector3::new(self.camera.eye.x, self.camera.eye.y, self.camera.eye.z), self.camera_controller.get_forward_vec(), 1000.0);
+            let raycast_result = /*self.worlds.get(&[0,0,0]).unwrap().*/block::raycast(Vector3::new(self.camera.eye.x, self.camera.eye.y, self.camera.eye.z), self.camera_controller.get_forward_vec(), 1000.0, &self.worlds);
             if raycast_result.0 {
-                self.worlds.get_mut(&[0,0,0]).unwrap().change_block(raycast_result.1[0], raycast_result.1[1], raycast_result.1[2], false, 0, &self.device);
+                let hit_world_pos = block::get_chunk_pos(raycast_result.1[0], raycast_result.1[1], raycast_result.1[2], block::CHUNK_SIZE);
+                self.worlds.get_mut(&hit_world_pos.0).unwrap().change_block(hit_world_pos.1[0], hit_world_pos.1[1], hit_world_pos.1[2], false, 0, &self.device);
             }
         }
-        if self.camera_controller.right_mouse_pressed {
+        /*if self.camera_controller.right_mouse_pressed {
             let raycast_result = self.worlds.get(&[0,0,0]).unwrap().raycast(Vector3::new(self.camera.eye.x, self.camera.eye.y, self.camera.eye.z), self.camera_controller.get_forward_vec(), 1000.0);
             if raycast_result.0 {
                 self.worlds.get_mut(&[0,0,0]).unwrap().change_block((raycast_result.1[0] as f32 + raycast_result.3.x) as i32, (raycast_result.1[1] as f32 + raycast_result.3.y) as i32, (raycast_result.1[2] as f32 + raycast_result.3.z) as i32, true, 0, &self.device);
             }
-        }
+        }*/
         self.camera_uniform.update_view_proj(&self.camera);
         self.queue.write_buffer(
             &self.camera_buffer,
