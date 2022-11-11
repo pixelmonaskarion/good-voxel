@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use block::{RENDER_DIST, World, CHUNK_SIZE};
 use cgmath::{Point3, Vector3};
 use winit::{
     event::*,
@@ -274,16 +275,12 @@ impl State {
         });
         let camera_controller = CameraController::new(0.006);
         let blocks = block::create_all_meshes(&device);
-        let world_size = 100;
         let generator = block::Generator::new();
-        let world = block::World::world(&generator, 0,0,0,world_size, &device, true);
+        let world = block::World::world(&generator, 0,0,0, &device, true);
         //let world2 = block::World::world(&generator, 0,world_size as i32 * -1,0,world_size, &device, false);
         let mut worlds: HashMap<[i32; 3], block::World> = HashMap::new();
         worlds.insert([0,0,0], world);
-        for pos in [[1,0,0], [-1,0,0], [0,0,1], [0,0,-1]] {
-            worlds.insert(pos, block::World::world(&generator, pos[0]*world_size as i32, pos[1]*world_size as i32, pos[2]*world_size as i32, world_size, &device, false));
-        }
-        let middle = (world_size/ 2) as f32 + 0.5;
+        let middle = (CHUNK_SIZE/ 2) as f32 + 0.5;
         camera.eye = Point3::new(middle, 75.0, middle);
         let time = SystemTime::now();
         Self {
@@ -308,6 +305,19 @@ impl State {
             time,
             first_frame: true,
         }
+    }
+
+    fn get_running_chunks(&self, threshold: i32) -> i32 {
+        let mut counter = 0;
+        for world in self.worlds.values().into_iter() {
+            if !world.finished {
+                counter += 1;
+            }
+            if counter > threshold {
+                return counter;
+            }
+        }
+        return counter;
     }
     
     #[allow(unused_mut)]
@@ -418,7 +428,55 @@ impl State {
         for world in &mut self.worlds {
             world.1.try_finish(&self.device);
         }
-
+        /*'first: for x in -RENDER_DIST..RENDER_DIST+1 {
+            for y in -RENDER_DIST..RENDER_DIST+1 {
+                for z in -RENDER_DIST..RENDER_DIST+1 {
+                    if !self.worlds.contains_key(&[x, y, z]) {
+                        if self.get_running_chunks(5) < 5 {
+                            self.worlds.insert([x, y, z], World::world(&self.generator, x, y, z, &self.device, false));
+                        } else {
+                            break 'first;
+                        }
+                    }
+                }
+            }
+        }*/
+        let mut fill: Vec<i32> = Vec::new();
+        let fill_size = RENDER_DIST*2+1;
+        fill.resize(fill_size.pow(3) as usize, 0);
+        //should set the center to 1
+        fill[(RENDER_DIST*fill_size*fill_size + RENDER_DIST*fill_size + RENDER_DIST) as usize] = 1;
+        let mut changed = true;
+        if self.get_running_chunks(1) < 1 {
+            'outer: while changed {
+                changed = false;
+                let mut new_fill = fill.clone();
+                for x in 0..fill_size {
+                    for y in 0..fill_size {
+                        for z in 0..fill_size {
+                            if fill[(x*fill_size*fill_size + y*fill_size + z) as usize] == 1 {
+                                for offset in [[1,0,0], [-1,0,0], [0,-1,0], [0,1,0], [0,0,-1], [0,0,1]] {
+                                    if x+offset[0] > -1 && x+offset[0] < fill_size && y+offset[1] > -1 && y+offset[1] < fill_size && z+offset[2] > -1 && z+offset[2] < fill_size {
+                                        if fill[((x+offset[0])*fill_size*fill_size + (y+offset[1])*fill_size + z+offset[2]) as usize] == 0 {
+                                            new_fill[((x+offset[0])*fill_size*fill_size + (y+offset[1])*fill_size + z+offset[2]) as usize] = 1;
+                                            let real_chunk_pos = [x-RENDER_DIST, y-RENDER_DIST, z-RENDER_DIST];
+                                            if !self.worlds.contains_key(&real_chunk_pos) {
+                                                //println!("{:?}", real_chunk_pos);
+                                                self.worlds.insert(real_chunk_pos, World::world(&self.generator, real_chunk_pos[0]*CHUNK_SIZE as i32, real_chunk_pos[1]*CHUNK_SIZE as i32, real_chunk_pos[2]*CHUNK_SIZE as i32, &self.device, false));
+                                                break 'outer;
+                                            }
+                                        }
+                                    }
+                                }
+                                new_fill[(x*fill_size*fill_size + y*fill_size + z) as usize] = 2;
+                                changed = true;
+                            }
+                        }
+                    }
+                }
+                fill = new_fill;
+            }
+        }
         //self.world.load_around([self.camera.eye.x, self.camera.eye.y, self.camera.eye.z], self.first_frame, &self.device);
         self.first_frame = false;
     }
@@ -603,7 +661,10 @@ pub async fn run() {
                 }
             }
             Event::RedrawRequested(window_id) if window_id == window.id() => {
+                //let time = SystemTime::now();
                 state.update();
+                //println!("took {:?} to update", SystemTime::now().duration_since(time));
+                //let time = SystemTime::now();
                 match state.render() {
                     Ok(_) => {}
                     // Reconfigure the surface if it's lost or outdated
@@ -614,6 +675,7 @@ pub async fn run() {
                     Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
                     Err(wgpu::SurfaceError::Timeout) => log::warn!("Surface timeout"),
                 }
+                //println!("took {:?} to render", SystemTime::now().duration_since(time));
             }
             Event::RedrawEventsCleared => {
                 // RedrawRequested will only trigger once, unless we manually

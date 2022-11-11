@@ -7,7 +7,7 @@ use winit::{
 
 use crate::block::{self, CHUNK_SIZE};
 
-pub const GM: i32 = 0;
+pub const GM: i32 = 1;
 
 #[rustfmt::skip]
 pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
@@ -85,8 +85,6 @@ pub struct CameraController {
 impl CameraController {
     pub fn new(mut speed: f32) -> Self {
         if GM == 1 {
-            speed = speed*5.0;
-        } else {
             speed = speed*5.0;
         }
         Self {
@@ -325,7 +323,7 @@ fn get_in_block(pos: Point3<f32>, worlds: &HashMap<[i32; 3], block::World>) -> b
         let world = world.unwrap();
         if world.solid_blocks.is_some() {
             let solid_blocks = world.solid_blocks.as_ref().unwrap();
-            let block = solid_blocks.get(block::index(world_pos.1[0] as usize, world_pos.1[1] as usize, world_pos.1[2] as usize, CHUNK_SIZE));
+            let block = solid_blocks.get(block::index(world_pos.1[0] as usize, world_pos.1[1] as usize, world_pos.1[2] as usize));
             if block.is_some() {
                 if *block.unwrap() == true {
                     return true;

@@ -1,0 +1,971 @@
+
+
+
+              win32u`NtUserFindExistingCursorIcon+0x14
+                1
+
+              win32u`NtGdiStretchDIBitsInternal+0x14
+                1
+
+              win32u`NtGdiDdDDICreatePagingQueue+0x14
+                1
+
+              win32u`NtGdiDdDDIShareObjects+0x14
+                1
+
+              0x7ffafb6b0905
+                1
+
+              USER32`IsWindowVisible+0xa9
+                1
+
+              tiny_voxel`ZN9wgpu_core12init_tracker6buffer65_$LT$impl$u20$wgpu_core..init_tracker..InitTracker$LT$u64$GT$$GT$13create_action17h85397899b703d4afE+0x6f
+                1
+
+              ucrtbase`tanf
+                1
+
+              ntdll`ZwTraceControl+0x14
+              ntdll`EtwEventSetInformation+0x125
+              ntdll`EtwEventSetInformation+0x30
+              0x7ffb34811116
+                1
+
+              ntdll`ZwTraceControl+0x14
+              ntdll`EtwEventRegister+0x106
+              ntdll`EtwNotificationRegister+0xa5
+              ntdll`EtwEventRegister+0x20
+              0x7ffb6a0d7a86
+                1
+
+              ntdll`ZwTraceControl+0x14
+              ntdll`EtwEventRegister+0x106
+              ntdll`EtwNotificationRegister+0xa5
+              ntdll`EtwEventRegister+0x20
+              combase`CoCopyProxy+0x6e1
+                1
+
+              0x7ffb0260441c
+                1
+
+              0x7ffafbace41c
+              0x7ffafb67a261
+                1
+
+              win32u`NtUserToUnicodeEx+0x14
+                1
+
+              win32u`NtUserGetKeyboardLayout+0x14
+                1
+
+              ntdll`ZwOpenFile+0x14
+              ntdll`RtlUnlockHeap+0x178c
+              ntdll`RtlUnlockHeap+0x1570
+              ntdll`RtlUnlockHeap+0x80f
+              ntdll`RtlGetFullPathName_UstrEx+0x22c3
+              ntdll`RtlDosPathNameToNtPathName_U_WithStatus+0x160
+              ntdll`RtlCreateUnicodeStringFromAsciiz+0x17e
+              ntdll`RtlVirtualUnwind+0xb47
+              ntdll`LdrResolveDelayLoadedAPI+0xc6
+              0x7ffb189e0d02
+                1
+
+              ntdll`NtContinue+0x14
+              ntdll`LdrInitializeThunk+0x18
+                1
+
+              ntdll`NtFlushBuffersFile+0x14
+              KERNELBASE`FlushFileBuffers+0x2d
+                1
+
+              KERNELBASE`WriteConsoleW+0xc5
+                1
+
+              ntdll`RtlWaitOnAddress+0xd9
+              ntdll`RtlEnterCriticalSection+0x214
+              ntdll`RtlEnterCriticalSection+0x42
+              ntdll`RtlRegisterSecureMemoryCacheCallback+0xdc5
+                1
+
+              ntdll`RtlGetFullPathName_UstrEx+0x13ae
+              ntdll`RtlGetFullPathName_UstrEx+0xa19
+              ntdll`RtlAllocateHeap+0x3cc6
+              ntdll`RtlAllocateHeap+0xaad
+              ntdll`RtlRegisterSecureMemoryCacheCallback+0xde8
+                1
+
+              win32u`NtUserGetThreadState+0x14
+                1
+
+              win32u`NtGdiDdDDIWaitForIdle+0x14
+                1
+
+              ntdll`NtWaitForSingleObject+0x14
+              ntdll`RtlUnlockHeap+0x622
+              ntdll`LdrShutdownThread+0x373
+              ntdll`LdrInitializeThunk+0x484
+              ntdll`LdrInitializeThunk+0x63
+              ntdll`LdrInitializeThunk+0xe
+                1
+
+              ntdll`ZwApphelpCacheControl+0x14
+              ntdll`RtlCreateHashTable+0x258
+              ntdll`RtlUnlockHeap+0x1c75
+              ntdll`RtlUnlockHeap+0x7ba
+              ntdll`RtlGetFullPathName_UstrEx+0x22c3
+              ntdll`RtlDosPathNameToNtPathName_U+0xd4
+              ntdll`LdrLoadDll+0xe4
+              KERNELBASE`LoadLibraryExW+0x162
+                1
+
+              ntdll`ZwApphelpCacheControl+0x14
+              ntdll`RtlCreateHashTable+0x258
+              ntdll`RtlSwitchedVVI+0x107a
+              ntdll`RtlSwitchedVVI+0xf74
+              ntdll`RtlSwitchedVVI+0xcbb
+              ntdll`RtlGetFullPathName_UstrEx+0x231e
+              ntdll`RtlDosPathNameToNtPathName_U+0xd4
+              ntdll`LdrLoadDll+0xe4
+              KERNELBASE`LoadLibraryExW+0x162
+                1
+
+              ntdll`RtlAllocateHeap+0xaa8
+              ntdll`RtlpIsQualifiedLanguage+0x11f3
+              ntdll`RtlpIsQualifiedLanguage+0x1041
+              ntdll`LdrShutdownThread+0x357
+              ntdll`LdrInitializeThunk+0x484
+              ntdll`LdrInitializeThunk+0x63
+              ntdll`LdrInitializeThunk+0xe
+                1
+
+              KERNEL32`Module32NextW+0x9b
+                1
+
+              0x7ffafba7a650
+                1
+
+              ntdll`RtlGetFullPathName_UstrEx+0x14c5
+              ntdll`RtlGetFullPathName_UstrEx+0xa19
+              ntdll`RtlGetFullPathName_UstrEx+0x11a1
+              ntdll`RtlGetFullPathName_UstrEx+0xb1d
+              ntdll`RtlGetCurrentServiceSessionId+0x1da6
+              ntdll`RtlGetCurrentServiceSessionId+0x1324
+              ntdll`RtlFreeHeap+0x51
+              ntdll`RtlRegisterSecureMemoryCacheCallback+0x194a
+                1
+
+              tiny_voxel`ZN9wgpu_core5track24ResourceTracker$LT$S$GT$13get_or_insert17ha6db10601d825bd4E.llvm.7565120988350029085+0x56
+                1
+
+              ntdll`RtlInitUnicodeString+0x16
+                1
+
+              ntdll`RtlInitUnicodeString+0x16
+              0x23
+                1
+
+              0x7ffb3f830f57
+                1
+
+              KERNEL32`Module32NextW+0xa7
+                1
+
+              0x7ffaec894c5d
+                1
+
+              ntdll`RtlImageNtHeader+0x8e
+              ntdll`LdrResolveDelayLoadedAPI+0x425
+              ntdll`LdrResolveDelayLoadedAPI+0x2e5
+              ntdll`TpAllocWork+0x7b9
+              ntdll`RtlIsCriticalSectionLockedByThread+0x33f
+              ntdll`RtlUnlockHeap+0x1843
+              ntdll`RtlUnlockHeap+0x1570
+              ntdll`RtlUnlockHeap+0x80f
+              ntdll`RtlGetFullPathName_UstrEx+0x22c3
+              ntdll`RtlDosPathNameToNtPathName_U+0xd4
+              ntdll`LdrLoadDll+0xe4
+              KERNELBASE`LoadLibraryExW+0x162
+                1
+
+              ntdll`RtlImageNtHeader+0x8e
+              ntdll`LdrResolveDelayLoadedAPI+0x425
+              ntdll`LdrResolveDelayLoadedAPI+0x2e5
+              ntdll`TpAllocWork+0x7b9
+              ntdll`RtlIsCriticalSectionLockedByThread+0x33f
+              ntdll`RtlUnlockHeap+0x1843
+              ntdll`RtlUnlockHeap+0x12a0
+              ntdll`RtlUnlockHeap+0x760
+              ntdll`RtlGetFullPathName_UstrEx+0x22c3
+              ntdll`RtlDosPathNameToNtPathName_U_WithStatus+0x160
+              ntdll`RtlCreateUnicodeStringFromAsciiz+0x17e
+              ntdll`RtlVirtualUnwind+0xb47
+              ntdll`LdrResolveDelayLoadedAPI+0xc6
+              0x7ffb55f068d2
+                1
+
+              win32u`NtUserValidateRect+0x14
+                1
+
+              win32u`NtGdiDdDDIReserveGpuVirtualAddress+0x14
+                1
+
+              ntdll`ZwQueryInformationThread+0x14
+              ntdll`RtlExitUserThread+0x2e
+              KERNEL32`BaseThreadInitThunk+0x1d
+              ntdll`RtlUserThreadStart+0x21
+                1
+
+              ntdll`NtQueryAttributesFile+0x14
+              ntdll`RtlUnlockHeap+0xe6b
+              ntdll`RtlUnlockHeap+0xcf7
+              ntdll`RtlGetFullPathName_UstrEx+0x455
+              ntdll`RtlGetFullPathName_UstrEx+0x30f
+              ntdll`LdrGetDllHandleEx+0xd7
+              ntdll`LdrGetDllHandle+0x1c
+              KERNELBASE`GetModuleHandleExW+0x106
+                1
+
+              ntdll`ZwCreateFile+0x14
+              KERNELBASE`CreateDirectoryW+0xe2
+                1
+
+              VCRUNTIME140`memcpy+0x17c
+                1
+
+              ntdll`RtlAllocateHeap+0x27d4
+              ntdll`RtlAllocateHeap+0xaad
+              ntdll`RtlpIsQualifiedLanguage+0x11f3
+              ntdll`RtlpIsQualifiedLanguage+0x1041
+              ntdll`LdrShutdownThread+0x357
+              ntdll`LdrInitializeThunk+0x484
+              ntdll`LdrInitializeThunk+0x63
+              ntdll`LdrInitializeThunk+0xe
+                1
+
+              ntdll`RtlGetFullPathName_UstrEx+0x14e4
+              ntdll`RtlGetFullPathName_UstrEx+0xa19
+              ntdll`RtlGetCurrentServiceSessionId+0x23c5
+              ntdll`RtlGetCurrentServiceSessionId+0x1324
+              ntdll`RtlFreeHeap+0x51
+              ntdll`RtlRegisterSecureMemoryCacheCallback+0x194a
+                1
+
+              0x7ffb0263ff80
+                1
+
+              ntdll`NtFreeVirtualMemory+0x14
+              ntdll`TpWaitForWait+0x18a
+              ntdll`RtlGetFullPathName_UstrEx+0xce4
+              ntdll`RtlGetCurrentServiceSessionId+0x1da6
+              ntdll`RtlGetCurrentServiceSessionId+0x1324
+              ntdll`RtlFreeHeap+0x51
+              ntdll`RtlRegisterSecureMemoryCacheCallback+0x194a
+                1
+
+              ntdll`RtlIsCriticalSectionLockedByThread+0x803
+              ntdll`LdrShutdownThread+0x582
+              ntdll`RtlIsCriticalSectionLockedByThread+0x384
+              ntdll`RtlUnlockHeap+0x1843
+              ntdll`RtlUnlockHeap+0x1570
+              ntdll`RtlUnlockHeap+0x80f
+              ntdll`RtlGetFullPathName_UstrEx+0x22c3
+              ntdll`RtlDosPathNameToNtPathName_U+0xd4
+              ntdll`LdrLoadDll+0xe4
+              KERNELBASE`LoadLibraryExW+0x162
+                1
+
+              ntdll`RtlAllocateHeap+0x27f6
+              ntdll`RtlAllocateHeap+0xaad
+              ntdll`RtlpIsQualifiedLanguage+0x11f3
+              ntdll`RtlpIsQualifiedLanguage+0x1041
+              ntdll`LdrShutdownThread+0x357
+              ntdll`LdrInitializeThunk+0x484
+              ntdll`LdrInitializeThunk+0x63
+              ntdll`LdrInitializeThunk+0xe
+                1
+
+              ntdll`RtlGetFullPathName_UstrEx+0xa09
+              ntdll`RtlAllocateHeap+0x3cc6
+              ntdll`RtlAllocateHeap+0xaad
+              ntdll`RtlRegisterSecureMemoryCacheCallback+0xde8
+                1
+
+              0x7ffb025dc99a
+                1
+
+              0x7ffb025c87a0
+                1
+
+              win32u`NtUserGetKeyState+0x14
+                1
+
+              win32u`NtUserSetWindowLong+0x14
+                1
+
+              win32u`NtGdiDdDDISignalSynchronizationObjectFromGpu+0x14
+                1
+
+              win32u`NtUserGetQueueStatusReadonly+0x14
+                1
+
+              ntdll`NtClose+0x14
+              ntdll`RtlUnlockHeap+0x1861
+              ntdll`RtlUnlockHeap+0x1570
+              ntdll`RtlUnlockHeap+0x80f
+              ntdll`RtlGetFullPathName_UstrEx+0x22c3
+              ntdll`RtlDosPathNameToNtPathName_U_WithStatus+0x160
+              ntdll`RtlCreateUnicodeStringFromAsciiz+0x17e
+              ntdll`RtlVirtualUnwind+0xb47
+              ntdll`LdrResolveDelayLoadedAPI+0xc6
+              combase`ReleaseFuncDescs+0x2b2
+                1
+
+              ntdll`NtClose+0x14
+              ntdll`RtlUnlockHeap+0x1861
+              ntdll`RtlUnlockHeap+0x12a0
+              ntdll`RtlUnlockHeap+0x760
+              ntdll`RtlUnlockHeap+0x6d3
+              ntdll`TpAllocPool+0xa60
+              ntdll`TpReleaseCleanupGroupMembers+0xada
+              KERNEL32`BaseThreadInitThunk+0x14
+                1
+
+              ntdll`NtSetInformationFile+0x14
+              KERNELBASE`SetFilePointerEx+0x5b
+                1
+
+              ntdll`ZwOpenSection+0x14
+              ntdll`RtlIsCriticalSectionLockedByThread+0x8c7
+              ntdll`RtlReleaseActivationContext+0xe7a
+              ntdll`LdrUnloadAlternateResourceModuleEx+0xb0d
+              ntdll`RtlGetFullPathName_UstrEx+0x22a1
+              ntdll`RtlDosPathNameToNtPathName_U+0xd4
+              ntdll`LdrLoadDll+0xe4
+              KERNELBASE`LoadLibraryExW+0x162
+                1
+
+              ntdll`NtAlertThreadByThreadId+0x14
+              ntdll`RtlWakeAddressAll+0x141
+              ntdll`RtlLeaveCriticalSection+0x97
+              ntdll`RtlRegisterSecureMemoryCacheCallback+0x221c
+                1
+
+              ntdll`NtAlertThreadByThreadId+0x14
+              ntdll`RtlWaitOnAddress+0x770
+              ntdll`RtlWaitOnAddress+0x2d5
+              ntdll`RtlWaitOnAddress+0x11d
+              ntdll`RtlEnterCriticalSection+0x214
+              ntdll`RtlEnterCriticalSection+0x42
+              ntdll`RtlRegisterSecureMemoryCacheCallback+0xdc5
+                1
+
+              0x7ffafb286ab6
+                1
+
+              ntdll`TpReleaseWork+0x141
+              0xad839fdd90
+                1
+
+              win32u`NtGdiDdDDIQueryAdapterInfo+0x14
+                1
+
+              ntdll`ZwMapViewOfSection+0x14
+              ntdll`RtlIsCriticalSectionLockedByThread+0x4b2
+              ntdll`RtlIsCriticalSectionLockedByThread+0x21a
+              ntdll`RtlReleaseActivationContext+0xf09
+              ntdll`LdrShutdownThread+0x1458
+              ntdll`LdrShutdownThread+0x6d9
+              ntdll`RtlIsCriticalSectionLockedByThread+0x384
+              ntdll`RtlReleaseActivationContext+0xf09
+              ntdll`LdrUnloadAlternateResourceModuleEx+0xb0d
+              ntdll`RtlGetFullPathName_UstrEx+0x22a1
+              ntdll`RtlDosPathNameToNtPathName_U_WithStatus+0x160
+              ntdll`RtlCreateUnicodeStringFromAsciiz+0x17e
+              ntdll`RtlVirtualUnwind+0xb47
+              ntdll`LdrResolveDelayLoadedAPI+0xc6
+              0x7ffb687c5772
+                1
+
+              ntdll`ZwMapViewOfSection+0x14
+              ntdll`RtlIsCriticalSectionLockedByThread+0x4b2
+              ntdll`RtlIsCriticalSectionLockedByThread+0x21a
+              ntdll`RtlReleaseActivationContext+0xf09
+              ntdll`LdrUnloadAlternateResourceModuleEx+0xb0d
+              ntdll`RtlGetFullPathName_UstrEx+0x22a1
+              ntdll`RtlDosPathNameToNtPathName_U_WithStatus+0x160
+              ntdll`RtlCreateUnicodeStringFromAsciiz+0x17e
+              ntdll`RtlVirtualUnwind+0xb47
+              ntdll`LdrResolveDelayLoadedAPI+0xc6
+              combase`ReleaseFuncDescs+0x2b2
+                1
+
+              ntdll`ZwMapViewOfSection+0x14
+              ntdll`RtlIsCriticalSectionLockedByThread+0x4b2
+              ntdll`RtlIsCriticalSectionLockedByThread+0x21a
+              ntdll`RtlReleaseActivationContext+0xf09
+              ntdll`LdrUnloadAlternateResourceModuleEx+0xb0d
+              ntdll`RtlGetFullPathName_UstrEx+0x22a1
+              ntdll`RtlDosPathNameToNtPathName_U+0xd4
+              ntdll`LdrLoadDll+0xe4
+              KERNELBASE`LoadLibraryExW+0x162
+                1
+
+              ntdll`ZwMapViewOfSection+0x14
+              ntdll`RtlIsCriticalSectionLockedByThread+0x4b2
+              ntdll`RtlIsCriticalSectionLockedByThread+0x21a
+              ntdll`RtlUnlockHeap+0x1843
+              ntdll`RtlUnlockHeap+0x1570
+              ntdll`RtlUnlockHeap+0x80f
+              ntdll`RtlGetFullPathName_UstrEx+0x22c3
+              ntdll`RtlDosPathNameToNtPathName_U_WithStatus+0x160
+              ntdll`RtlCreateUnicodeStringFromAsciiz+0x17e
+              ntdll`RtlVirtualUnwind+0xb47
+              ntdll`LdrResolveDelayLoadedAPI+0xc6
+              SHELL32`ILGetSize+0x792
+                1
+
+              ntdll`ZwMapViewOfSection+0x14
+              ntdll`RtlIsCriticalSectionLockedByThread+0x4b2
+              ntdll`RtlIsCriticalSectionLockedByThread+0x21a
+              ntdll`RtlUnlockHeap+0x1843
+              ntdll`RtlUnlockHeap+0x1570
+              ntdll`RtlUnlockHeap+0x80f
+              ntdll`RtlGetFullPathName_UstrEx+0x22c3
+              ntdll`RtlDosPathNameToNtPathName_U_WithStatus+0x160
+              ntdll`RtlCreateUnicodeStringFromAsciiz+0x17e
+              ntdll`RtlVirtualUnwind+0xb47
+              ntdll`LdrResolveDelayLoadedAPI+0xc6
+              combase`ReleaseFuncDescs+0x2b2
+                1
+
+              ntdll`ZwMapViewOfSection+0x14
+              ntdll`RtlIsCriticalSectionLockedByThread+0x4b2
+              ntdll`RtlIsCriticalSectionLockedByThread+0x21a
+              ntdll`RtlUnlockHeap+0x1843
+              ntdll`RtlUnlockHeap+0x1570
+              ntdll`RtlUnlockHeap+0x80f
+              ntdll`RtlGetFullPathName_UstrEx+0x22c3
+              ntdll`RtlDosPathNameToNtPathName_U_WithStatus+0x160
+              ntdll`RtlCreateUnicodeStringFromAsciiz+0x17e
+              ntdll`RtlVirtualUnwind+0xb47
+              ntdll`LdrResolveDelayLoadedAPI+0xc6
+              0x7ffb691295a2
+                1
+
+              ntdll`ZwMapViewOfSection+0x14
+              ntdll`RtlIsCriticalSectionLockedByThread+0x4b2
+              ntdll`RtlIsCriticalSectionLockedByThread+0x21a
+              ntdll`RtlUnlockHeap+0x1843
+              ntdll`RtlUnlockHeap+0x1570
+              ntdll`RtlUnlockHeap+0x80f
+              ntdll`RtlGetFullPathName_UstrEx+0x22c3
+              ntdll`RtlDosPathNameToNtPathName_U_WithStatus+0x160
+              ntdll`RtlCreateUnicodeStringFromAsciiz+0x17e
+              ntdll`RtlVirtualUnwind+0xb47
+              ntdll`LdrResolveDelayLoadedAPI+0xc6
+              USER32`LoadBitmapW+0x52
+                1
+
+              ntdll`ZwMapViewOfSection+0x14
+              ntdll`RtlIsCriticalSectionLockedByThread+0x4b2
+              ntdll`RtlIsCriticalSectionLockedByThread+0x21a
+              ntdll`RtlUnlockHeap+0x1843
+              ntdll`RtlUnlockHeap+0x1570
+              ntdll`RtlUnlockHeap+0x80f
+              ntdll`RtlGetFullPathName_UstrEx+0x22c3
+              ntdll`RtlDosPathNameToNtPathName_U+0xd4
+              ntdll`LdrLoadDll+0xe4
+              KERNELBASE`LoadLibraryExW+0x162
+                1
+
+              ntdll`TpReleaseWork+0x144
+              0xad82b28b90
+                1
+
+              0x7ffaec894edf
+                1
+
+              tiny_voxel`ZN9wgpu_core5track24ResourceTracker$LT$S$GT$4init17h2f4da15484594535E
+                1
+
+              tiny_voxel`ZN9wgpu_core6device5queue20StagingData$LT$A$GT$5write17h207c369f561530e3E
+                1
+
+              ucrtbase`o_memset+0xb0
+                1
+
+              tiny_voxel`ZN4core5slice4sort7recurse17h7a2cdbf329f0947bE.llvm.17022993808948088813
+                1
+
+              ntdll`NtQueryVolumeInformationFile+0x14
+              KERNELBASE`GetFileType+0x3e
+                1
+
+              ntdll`LdrResolveDelayLoadedAPI+0x367
+              ntdll`TpAllocWork+0x7b9
+              ntdll`RtlIsCriticalSectionLockedByThread+0x33f
+              ntdll`RtlUnlockHeap+0x1843
+              ntdll`RtlUnlockHeap+0x1570
+              ntdll`RtlUnlockHeap+0x80f
+              ntdll`RtlGetFullPathName_UstrEx+0x22c3
+              ntdll`RtlDosPathNameToNtPathName_U+0xd4
+              ntdll`LdrLoadDll+0xe4
+              KERNELBASE`LoadLibraryExW+0x162
+                1
+
+              ntdll`NtAlpcConnectPortEx+0x14
+              RPCRT4`RpcServerRegisterIf3+0xe02
+                1
+
+              ntdll`NtAlpcConnectPortEx+0x14
+              0x7ffb630cb1f6
+                1
+
+              0x7ffafb359ffd
+                1
+
+              0x7ffaecdc0fff
+                1
+
+              0x7ffafb6e4eff
+                1
+
+              0x7ffafb0cbfff
+                1
+
+              win32u`NtUserPostThreadMessage+0x14
+                2
+
+              ntdll`ZwCreateSection+0x14
+              ntdll`RtlUnlockHeap+0x17ee
+              ntdll`RtlUnlockHeap+0x1570
+              ntdll`RtlUnlockHeap+0x80f
+              ntdll`RtlGetFullPathName_UstrEx+0x22c3
+              ntdll`RtlDosPathNameToNtPathName_U+0xd4
+              ntdll`LdrLoadDll+0xe4
+              KERNELBASE`LoadLibraryExW+0x162
+                2
+
+              ntdll`RtlAllocateHeap+0x457c
+              ntdll`RtlAllocateHeap+0xaad
+              ntdll`RtlRegisterSecureMemoryCacheCallback+0xde8
+                2
+
+              win32u`NtUserShowWindow+0x14
+                2
+
+              win32u`NtGdiDdDDIDestroySynchronizationObject+0x14
+                2
+
+              win32u`NtUserSetCursorPos+0x14
+                2
+
+              ntdll`NtWaitForSingleObject+0x14
+              ntdll`RtlUnlockHeap+0x622
+              ntdll`LdrShutdownThread+0x9d
+              ntdll`RtlExitUserThread+0x3e
+              KERNEL32`BaseThreadInitThunk+0x1d
+              ntdll`RtlUserThreadStart+0x21
+                2
+
+              win32u`NtUserPeekMessage+0x14
+                2
+
+              win32u`NtUserIsChildWindowDpiMessageEnabled+0x14
+                2
+
+              ntdll`ZwSetEvent+0x14
+              ntdll`LdrShutdownThread+0x210
+              ntdll`RtlExitUserThread+0x3e
+              KERNEL32`BaseThreadInitThunk+0x1d
+              ntdll`RtlUserThreadStart+0x21
+                2
+
+              ntdll`NtFreeVirtualMemory+0x14
+              ntdll`TpWaitForWait+0x18a
+              ntdll`RtlGetNtGlobalFlags+0xbb
+                2
+
+              win32u`NtGdiDeleteObjectApp+0x14
+                2
+
+              win32u`NtGdiDdDDIOpenResourceFromNtHandle+0x14
+                2
+
+              win32u`NtGdiDdDDIUnlock2+0x14
+                2
+
+              ntdll`ZwMapViewOfSection+0x14
+              ntdll`RtlIsCriticalSectionLockedByThread+0x4b2
+              ntdll`RtlIsCriticalSectionLockedByThread+0x21a
+              ntdll`RtlReleaseActivationContext+0xf09
+              ntdll`LdrShutdownThread+0x1458
+              ntdll`LdrShutdownThread+0x6d9
+              ntdll`RtlIsCriticalSectionLockedByThread+0x384
+              ntdll`RtlUnlockHeap+0x1843
+              ntdll`RtlUnlockHeap+0x1570
+              ntdll`RtlUnlockHeap+0x80f
+              ntdll`RtlGetFullPathName_UstrEx+0x22c3
+              ntdll`RtlDosPathNameToNtPathName_U+0xd4
+              ntdll`LdrLoadDll+0xe4
+              KERNELBASE`LoadLibraryExW+0x162
+                2
+
+              ntdll`NtCreateThreadEx+0x14
+              KERNELBASE`CreateRemoteThreadEx+0x29f
+              KERNEL32`CreateThread+0x3d
+              0x7ffafb65af75
+                2
+
+              tiny_voxel`ZN10tiny_voxel5State6render17hf2ac5897a24b33deE+0x3df
+                2
+
+              win32u`NtGdiDdDDIEscape+0x14
+                2
+
+              win32u`NtGdiDdDDISetDisplayMode+0x14
+                2
+
+              win32u`NtGdiDdDDISubmitCommand+0x14
+                2
+
+              win32u`NtUserGetCurrentInputMessageSource+0x14
+                2
+
+              ntdll`RtlWaitOnAddress+0x293
+              ntdll`RtlWaitOnAddress+0x11d
+              ntdll`RtlEnterCriticalSection+0x214
+              ntdll`RtlEnterCriticalSection+0x42
+              ntdll`RtlRegisterSecureMemoryCacheCallback+0xdc5
+                2
+
+              win32u`NtUserDisplayConfigGetDeviceInfo+0x14
+                3
+
+              win32u`NtGdiDdDDIOpenAdapterFromHdc+0x14
+                3
+
+              ntdll`NtFreeVirtualMemory+0x14
+              ntdll`TpWaitForWait+0x18a
+              ntdll`RtlGetNtGlobalFlags+0x8b
+                3
+
+              ntdll`RtlAllocateHeap+0x27f6
+              ntdll`RtlAllocateHeap+0xaad
+              ntdll`RtlRegisterSecureMemoryCacheCallback+0xde8
+                3
+
+              win32u`NtUserBuildHwndList+0x14
+                3
+
+              win32u`NtUserGetDisplayConfigBufferSizes+0x14
+                3
+
+              win32u`NtUserGetHDevName+0x14
+                3
+
+              ntdll`ZwMapViewOfSection+0x14
+              ntdll`RtlIsCriticalSectionLockedByThread+0x4b2
+              ntdll`RtlIsCriticalSectionLockedByThread+0x21a
+              ntdll`RtlUnlockHeap+0x1843
+              ntdll`RtlUnlockHeap+0x12a0
+              ntdll`RtlUnlockHeap+0x760
+              ntdll`RtlUnlockHeap+0x6d3
+              ntdll`TpAllocPool+0xa60
+              ntdll`TpReleaseCleanupGroupMembers+0xada
+              KERNEL32`BaseThreadInitThunk+0x14
+                3
+
+              ntdll`ZwMapViewOfSection+0x14
+              ntdll`RtlIsCriticalSectionLockedByThread+0x4b2
+              ntdll`RtlIsCriticalSectionLockedByThread+0x21a
+              ntdll`RtlUnlockHeap+0x1843
+              ntdll`RtlUnlockHeap+0x12a0
+              ntdll`RtlUnlockHeap+0x760
+              ntdll`RtlUnlockHeap+0x648
+              ntdll`RtlGetFullPathName_UstrEx+0x22cd
+              ntdll`RtlDosPathNameToNtPathName_U+0xd4
+              ntdll`LdrLoadDll+0xe4
+              KERNELBASE`LoadLibraryExW+0x162
+                3
+
+              win32u`NtGdiDdDDIDestroyContext+0x14
+                3
+
+              ntdll`NtQueryAttributesFile+0x14
+              ntdll`RtlUnlockHeap+0xe6b
+              ntdll`RtlUnlockHeap+0xcf7
+              ntdll`RtlUnlockHeap+0x1502
+              ntdll`RtlUnlockHeap+0x80f
+              ntdll`RtlGetFullPathName_UstrEx+0x22c3
+              ntdll`RtlDosPathNameToNtPathName_U+0xd4
+              ntdll`LdrLoadDll+0xe4
+              KERNELBASE`LoadLibraryExW+0x162
+                4
+
+              ntdll`NtQueryAttributesFile+0x14
+              ntdll`RtlUnlockHeap+0xe6b
+              ntdll`RtlUnlockHeap+0xcf7
+              ntdll`RtlGetFullPathName_UstrEx+0x455
+              ntdll`RtlGetFullPathName_UstrEx+0x30f
+              ntdll`LdrGetDllHandleEx+0xd7
+              ntdll`LdrGetDllHandle+0x1c
+              KERNELBASE`GetModuleHandleExA+0x147
+                4
+
+              VCRUNTIME140`memcpy+0x180
+                4
+
+              ntdll`NtReadFile+0x14
+              KERNELBASE`ReadFile+0x73
+                4
+
+              ntdll`RtlCompareMemoryUlong+0x10
+              ntdll`RtlAllocateHeap+0x3360
+              ntdll`RtlAllocateHeap+0xaad
+              ntdll`RtlRegisterSecureMemoryCacheCallback+0xde8
+                4
+
+              win32u`NtUserSetWindowPos+0x14
+                4
+
+              win32u`NtUserCreateWindowEx+0x14
+                4
+
+              ntdll`NtAllocateVirtualMemory+0x14
+              KERNELBASE`SetThreadStackGuarantee+0xdb
+                4
+
+              ntdll`NtAllocateVirtualMemory+0x14
+              ntdll`RtlGetNtGlobalFlags+0x6e
+                4
+
+              win32u`NtUserGetWindowCompositionAttribute+0x14
+                4
+
+              win32u`NtUserWindowFromDC+0x14
+                5
+
+              win32u`NtUserGetDC+0x14
+                5
+
+              ntdll`ZwSetEvent+0x14
+              ntdll`LdrShutdownThread+0x505
+              ntdll`LdrInitializeThunk+0x484
+              ntdll`LdrInitializeThunk+0x63
+              ntdll`LdrInitializeThunk+0xe
+                5
+
+              win32u`NtUserQueryDisplayConfig+0x14
+                6
+
+              win32u`NtGdiDdDDIPresent+0x14
+                6
+
+              VCRUNTIME140`memcpy+0x699
+                6
+
+              win32u`NtUserReleaseDC+0x14
+                6
+
+              ntdll`NtReleaseMutant+0x14
+              KERNELBASE`ReleaseMutex+0xd
+                6
+
+              ntdll`RtlProtectHeap+0x84d
+              ntdll`RtlProtectHeap+0x6fe
+              ntdll`RtlProtectHeap+0x29b
+              ntdll`RtlAllocateHeap+0x325a
+              ntdll`RtlAllocateHeap+0xaad
+              ntdll`RtlRegisterSecureMemoryCacheCallback+0xde8
+                7
+
+              win32u`NtGdiDdDDICreateSynchronizationObject+0x14
+                7
+
+              ntdll`NtClose+0x14
+              KERNELBASE`CloseHandle+0x45
+                7
+
+              ntdll`ZwWaitForAlertByThreadId+0x14
+              ntdll`RtlWaitOnAddress+0x44d
+              ntdll`RtlWaitOnAddress+0x302
+              ntdll`RtlWaitOnAddress+0x11d
+              ntdll`RtlEnterCriticalSection+0x214
+              ntdll`RtlEnterCriticalSection+0x42
+              ntdll`RtlRegisterSecureMemoryCacheCallback+0x1dca
+                7
+
+              ntdll`NtAllocateVirtualMemory+0x14
+              ntdll`RtlProtectHeap+0x635
+              ntdll`RtlProtectHeap+0x29b
+              ntdll`RtlAllocateHeap+0x325a
+              ntdll`RtlAllocateHeap+0xaad
+              ntdll`RtlRegisterSecureMemoryCacheCallback+0xde8
+                7
+
+              win32u`NtGdiOpenDCW+0x14
+                7
+
+              win32u`NtUserRedrawWindow+0x14
+                8
+
+              ntdll`ZwCreateFile+0x14
+              KERNELBASE`CreateFileW+0x340
+                9
+
+              win32u`NtUserChangeDisplaySettings+0x14
+               10
+
+              win32u`NtGdiDdDDISignalSynchronizationObjectFromGpu2+0x14
+               10
+
+              win32u`NtUserMessageCall+0x14
+               11
+
+              tiny_voxel`__chkstk+0x37
+              tiny_voxel`std::sys::windows::stdio::write_valid_utf8_to_console+0x16
+               13
+
+              win32u`NtUserCallNextHookEx+0x14
+               14
+
+              ntdll`NtAlpcSendWaitReceivePort+0x14
+              dwmapi`DwmUnregisterThumbnail+0x46a
+               14
+
+              tiny_voxel`wgpu_render_pass_draw_indexed+0x46
+               16
+
+              tiny_voxel`ZN9wgpu_core7command6render10RenderPass16set_index_buffer17ha8990eeebc56f084E+0x3a
+               16
+
+              tiny_voxel`wgpu_render_pass_set_vertex_buffer+0x41
+               17
+
+              tiny_voxel`wgpu_render_pass_set_vertex_buffer+0x39
+               18
+
+              win32u`NtGdiDdDDILock2+0x14
+               19
+
+              tiny_voxel`ZN9wgpu_core5track24ResourceTracker$LT$S$GT$13merge_replace17h2ac0c1393fcb12f0E.llvm.7565120988350029085+0x2d3
+               20
+
+              ntdll`NtDeviceIoControlFile+0x14
+              KERNELBASE`GetConsoleMode+0xc0
+               21
+
+              ntdll`ZwWaitForAlertByThreadId+0x14
+              ntdll`RtlSleepConditionVariableSRW+0x131
+              KERNELBASE`SleepConditionVariableSRW+0x29
+               23
+
+              tiny_voxel`wgpu_render_pass_set_vertex_buffer+0x46
+               25
+
+              win32u`NtGdiDdDDICreateContextVirtual+0x14
+               29
+
+              ntdll`NtDeviceIoControlFile+0x14
+              KERNELBASE`WriteConsoleW+0x191
+               35
+
+              win32u`NtUserGetMessage+0x14
+               36
+
+              ntdll`NtTerminateThread+0x14
+              ntdll`RtlExitUserThread+0x4e
+              KERNEL32`BaseThreadInitThunk+0x1d
+              ntdll`RtlUserThreadStart+0x21
+               37
+
+              ntdll`NtCreateThreadEx+0x14
+              KERNELBASE`CreateRemoteThreadEx+0x29f
+              KERNEL32`CreateThread+0x3d
+              tiny_voxel`std::sys::windows::thread::Thread::new+0x72
+               44
+
+              win32u`NtGdiDdDDIMakeResident+0x14
+               45
+
+              ntdll`RtlUserThreadStart
+               45
+
+              ntdll`ZwWaitForWorkViaWorkerFactory+0x14
+              ntdll`TpReleaseCleanupGroupMembers+0x747
+              KERNEL32`BaseThreadInitThunk+0x14
+              ntdll`RtlUserThreadStart+0x21
+               48
+
+              win32u`NtUserFindWindowEx+0x14
+               49
+
+              win32u`NtGdiDdDDISetVidPnSourceOwner+0x14
+               74
+
+              ntdll`memset+0xb757
+              ntdll`RtlProtectHeap+0x2c9
+              ntdll`RtlAllocateHeap+0x325a
+              ntdll`RtlAllocateHeap+0xaad
+              ntdll`RtlRegisterSecureMemoryCacheCallback+0xde8
+               78
+
+              ntdll`NtAlertThreadByThreadId+0x14
+              ntdll`RtlWakeAddressAll+0x141
+              ntdll`RtlLeaveCriticalSection+0x97
+              ntdll`RtlRegisterSecureMemoryCacheCallback+0x19ab
+               98
+
+              win32u`NtGdiDdDDIMapGpuVirtualAddress+0x14
+              124
+
+              ntdll`ZwWaitForAlertByThreadId+0x14
+              ntdll`RtlWaitOnAddress+0x44d
+              ntdll`RtlWaitOnAddress+0x302
+              ntdll`RtlWaitOnAddress+0x11d
+              ntdll`RtlEnterCriticalSection+0x214
+              ntdll`RtlEnterCriticalSection+0x42
+              ntdll`RtlRegisterSecureMemoryCacheCallback+0xdc5
+              144
+
+              ntdll`memcpy+0x1d3
+              ntdll`RtlReleaseSRWLockShared+0xeb9
+              ntdll`RtlReAllocateHeap+0x2a3
+              ntdll`RtlReAllocateHeap+0x7d
+              ntdll`RtlRegisterSecureMemoryCacheCallback+0x1f95
+              158
+
+              tiny_voxel`ZN9hashbrown3raw21RawTable$LT$T$C$A$GT$14reserve_rehash17h9435352b807862dbE.llvm.2584865671395415411+0x3f0
+              174
+
+              ntdll`NtFreeVirtualMemory+0x14
+              ntdll`TpWaitForWait+0x18a
+              ntdll`RtlGetCurrentServiceSessionId+0x26e7
+              ntdll`RtlGetCurrentServiceSessionId+0x1324
+              ntdll`RtlFreeHeap+0x51
+              ntdll`RtlRegisterSecureMemoryCacheCallback+0x194a
+              174
+
+              ntdll`NtAlertThreadByThreadId+0x14
+              ntdll`RtlWakeAddressAll+0x141
+              ntdll`RtlLeaveCriticalSection+0x97
+              ntdll`RtlRegisterSecureMemoryCacheCallback+0x1066
+              209
+
+              ntdll`ZwWaitForAlertByThreadId+0x14
+              ntdll`RtlWaitOnAddress+0x44d
+              ntdll`RtlWaitOnAddress+0x302
+              ntdll`RtlWaitOnAddress+0x11d
+              ntdll`RtlEnterCriticalSection+0x214
+              ntdll`RtlEnterCriticalSection+0x42
+              ntdll`RtlRegisterSecureMemoryCacheCallback+0x178f
+              233
+
+              win32u`NtGdiDdDDIDestroyAllocation2+0x14
+              264
+
+              win32u`NtGdiDdDDICreateAllocation+0x14
+              302
+
+            52856
