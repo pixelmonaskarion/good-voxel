@@ -9,6 +9,7 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+wgpu_text = "*"
 cfg-if = "1"
 winit = "0.26"
 env_logger = "0.9"
@@ -26,6 +27,7 @@ mockall = "*"
 bitvec = "1.0.1"
 wasm-timer = "0.2.5"
 tokio = { version = "1", features = ["full"] }
+
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console_error_panic_hook = "0.1.6"
 console_log = "0.2.0"
@@ -37,6 +39,7 @@ web-sys = { version = "0.3", features = [
     "Window",
     "Element",
 ]}
+
 [dependencies.image]
 version = "0.24"
 default-features = false

@@ -1,0 +1,1 @@
+get_color_random

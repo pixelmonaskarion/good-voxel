@@ -8,6 +8,8 @@ use winit::{
     window::WindowBuilder,
 };
 
+use wgpu_text::{section::{Section, Text, Layout, HorizontalAlign}, TextBrush, font::FontRef};
+
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 use wgpu::util::DeviceExt;
@@ -18,7 +20,10 @@ mod camera;
 mod texture;
 mod model;
 mod block;
+mod collisions;
 use camera::*;
+
+pub const MAX_RUNNING_CHUNKS: i32 = 5;
 
 
 #[repr(C)]
@@ -27,12 +32,16 @@ use camera::*;
 //so that's why I don't just use a array
 pub struct Vertex {
     position: [f32; 3],
+    normal: [f32; 3],
+    texture_coords: [f32; 2],
 }
 
 impl Vertex {
-    pub const fn new(x: f32, y: f32, z:f32) -> Self{
+    pub const fn new(x: f32, y: f32, z:f32, nx:f32, ny:f32, nz:f32, tx:f32, ty:f32) -> Self{
         Self {
             position: [x, y, z],
+            normal: [nx, ny, nz],
+            texture_coords: [tx, ty],
         }
     }
 
@@ -47,12 +56,16 @@ impl Vertex {
                     shader_location: 0,
                     format: wgpu::VertexFormat::Float32x3,
                 },
-                //old code for adding something else to the vertex
-                /*wgpu::VertexAttribute {
+                wgpu::VertexAttribute {
                     offset: mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
                     shader_location: 1,
-                    format: wgpu::VertexFormat::Float32x3, // NEW!
-                },*/
+                    format: wgpu::VertexFormat::Float32x3,
+                },
+                wgpu::VertexAttribute {
+                    offset: mem::size_of::<[f32; 6]>() as wgpu::BufferAddress,
+                    shader_location: 2,
+                    format: wgpu::VertexFormat::Float32x2,
+                },
             ],
         }
     }
@@ -62,6 +75,7 @@ impl Vertex {
 pub struct Instance {
     position: cgmath::Vector3<f32>,
     color: [f32; 3],
+    texture_offsets: [[f32; 2]; 6],
 }
 
 impl Instance {
@@ -69,6 +83,7 @@ impl Instance {
         InstanceRaw {
             pos: self.position.into(),
             color: self.color,
+            texture_offsets: self.texture_offsets,
         }
     }
 }
@@ -78,6 +93,7 @@ impl Instance {
 struct InstanceRaw {
     pos: [f32; 3],
     color: [f32; 3],
+    texture_offsets: [[f32; 2]; 6],
 }
 
 impl InstanceRaw {
@@ -96,7 +112,38 @@ impl InstanceRaw {
                     offset: mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
                     shader_location: 6,
                     format: wgpu::VertexFormat::Float32x3,
-                }
+                },
+                //all texture offsets
+                wgpu::VertexAttribute {
+                    offset: mem::size_of::<[f32; 6]>() as wgpu::BufferAddress,
+                    shader_location: 7,
+                    format: wgpu::VertexFormat::Float32x2,
+                },
+                wgpu::VertexAttribute {
+                    offset: mem::size_of::<[f32; 8]>() as wgpu::BufferAddress,
+                    shader_location: 8,
+                    format: wgpu::VertexFormat::Float32x2,
+                },
+                wgpu::VertexAttribute {
+                    offset: mem::size_of::<[f32; 10]>() as wgpu::BufferAddress,
+                    shader_location: 9,
+                    format: wgpu::VertexFormat::Float32x2,
+                },
+                wgpu::VertexAttribute {
+                    offset: mem::size_of::<[f32; 12]>() as wgpu::BufferAddress,
+                    shader_location: 10,
+                    format: wgpu::VertexFormat::Float32x2,
+                },
+                wgpu::VertexAttribute {
+                    offset: mem::size_of::<[f32; 14]>() as wgpu::BufferAddress,
+                    shader_location: 11,
+                    format: wgpu::VertexFormat::Float32x2,
+                },
+                wgpu::VertexAttribute {
+                    offset: mem::size_of::<[f32; 16]>() as wgpu::BufferAddress,
+                    shader_location: 12,
+                    format: wgpu::VertexFormat::Float32x2,
+                },
             ],
         }
     }
@@ -110,7 +157,10 @@ struct State {
     config: wgpu::SurfaceConfiguration,
     size: winit::dpi::PhysicalSize<u32>,
     render_pipeline: wgpu::RenderPipeline,
-    blocks: Vec<model::Model>,
+    text_brush: TextBrush<FontRef<'static>>,
+    texture_bind_group: wgpu::BindGroup,
+    texture: texture::Texture,
+    blocks: model::Model,
     generator: block::Generator,
     //world: block::World,
     worlds: HashMap<[i32; 3], block::World>,
@@ -124,6 +174,7 @@ struct State {
     depth_texture: texture::Texture,
     time: SystemTime,
     first_frame: bool,
+    last_broken: i32,
 }
 //I'm gonna keep some of the comments from the tutorial in here because I like them
 //tutorial comments will start with a *
@@ -165,6 +216,49 @@ impl State {
             present_mode: wgpu::PresentMode::Fifo,
         };
         surface.configure(&device, &config);
+        let diffuse_bytes = include_bytes!("textures.png");
+        let diffuse_texture =
+            texture::Texture::from_bytes(&device, &queue, diffuse_bytes, "textures.png").unwrap();
+        let texture_bind_group_layout =
+        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        multisampled: false,
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    // This should match the filterable field of the
+                    // corresponding Texture entry above.
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    count: None,
+                },
+            ],
+            label: Some("texture_bind_group_layout"),
+        });
+        let diffuse_bind_group = device.create_bind_group(
+            &wgpu::BindGroupDescriptor {
+                layout: &texture_bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
+                    }
+                ],
+                label: Some("diffuse_bind_group"),
+            }
+        );
         let mut camera = Camera {
             eye: (0.0, -1.0, 2.0).into(),
             target: (1.0, 0.0, 0.0).into(),
@@ -214,10 +308,10 @@ impl State {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[/*&texture_bind_group_layout, */&camera_bind_group_layout],
+                bind_group_layouts: &[&texture_bind_group_layout, &camera_bind_group_layout],
                 push_constant_ranges: &[],
             });
-        let instances = [Instance { position: cgmath::Vector3::new(0.0, 0.0, 0.0), /*rotation: cgmath::Quaternion::new(1.0, 0.0, 0.0, 0.0), */color: [1.0,1.0,1.0]}].to_vec();
+        let instances = [Instance { position: cgmath::Vector3::new(0.0, 0.0, 0.0), /*rotation: cgmath::Quaternion::new(1.0, 0.0, 0.0, 0.0), */color: [1.0,1.0,1.0], texture_offsets: [[0.0, 0.0]; 6]}].to_vec();
         let instance_data = instances.iter().map(Instance::to_raw).collect::<Vec<_>>();
         let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Instance Buffer"),
@@ -283,6 +377,10 @@ impl State {
         let middle = (CHUNK_SIZE/ 2) as f32 + 0.5;
         camera.eye = Point3::new(middle, 75.0, middle);
         let time = SystemTime::now();
+        let brush = wgpu_text::BrushBuilder::using_font_bytes(include_bytes!("Inconsolata-Regular.ttf")).unwrap()
+        /* .initial_cache_size((1024, 1024))) */ // use this to avoid resizing cache texture
+        /* .with_depth_testing(true) */ // enable/disable depth testing
+            .build(&device, &config);
         Self {
             surface,
             device,
@@ -290,6 +388,9 @@ impl State {
             config,
             size,
             render_pipeline,
+            text_brush: brush,
+            texture: diffuse_texture,
+            texture_bind_group: diffuse_bind_group,
             blocks,
             generator,
             //world,
@@ -304,6 +405,7 @@ impl State {
             depth_texture,
             time,
             first_frame: true,
+            last_broken: 0,
         }
     }
 
@@ -318,6 +420,14 @@ impl State {
             }
         }
         return counter;
+    }
+
+    fn get_center_chunk(&self) -> [i32; 3] {
+        let center_x = (self.camera.eye.x /CHUNK_SIZE as f32).floor() as i32;
+        let center_y = (self.camera.eye.y /CHUNK_SIZE as f32).floor() as i32;
+        let center_z = (self.camera.eye.z /CHUNK_SIZE as f32).floor() as i32;
+        return [center_x, center_y, center_z];
+        //return [0,0,0];
     }
     
     #[allow(unused_mut)]
@@ -335,6 +445,7 @@ impl State {
             self.depth_texture = texture::Texture::create_depth_texture(&self.device, &self.config, "depth_texture");
             self.camera.aspect = self.config.width as f32 / self.config.height as f32;
             self.surface.configure(&self.device, &self.config);
+            self.text_brush.resize_view(new_size.width as f32, new_size.height as f32, &self.queue);
         }
     }
 
@@ -395,22 +506,15 @@ impl State {
         }
     }
 
-    fn update(&mut self) {
-        let mut delta_time = match self.time.elapsed() {
-            Ok(dur) => dur.as_millis(),
-            Err(_e) => 15,
-        };
-        self.time = SystemTime::now();
-        delta_time = match self.time.elapsed() {
-            Ok(dur) => delta_time-dur.as_millis(),
-            Err(_e) => 15,
-        };
+    fn update(&mut self, delta_time: u128) {
+        self.last_broken += 1;
         self.camera_controller.update_camera(&mut self.camera, &self.worlds, delta_time as f32);
-        if self.camera_controller.left_mouse_pressed {
+        if self.camera_controller.left_mouse_pressed && self.last_broken >= 15 {
             let raycast_result = /*self.worlds.get(&[0,0,0]).unwrap().*/block::raycast(Vector3::new(self.camera.eye.x, self.camera.eye.y, self.camera.eye.z), self.camera_controller.get_forward_vec(), 1000.0, &self.worlds);
             if raycast_result.0 {
                 let hit_world_pos = block::get_chunk_pos(raycast_result.1[0], raycast_result.1[1], raycast_result.1[2], block::CHUNK_SIZE);
                 self.worlds.get_mut(&hit_world_pos.0).unwrap().change_block(hit_world_pos.1[0], hit_world_pos.1[1], hit_world_pos.1[2], false, 0, &self.device);
+                self.last_broken = 0;
             }
         }
         /*if self.camera_controller.right_mouse_pressed {
@@ -447,7 +551,8 @@ impl State {
         //should set the center to 1
         fill[(RENDER_DIST*fill_size*fill_size + RENDER_DIST*fill_size + RENDER_DIST) as usize] = 1;
         let mut changed = true;
-        if self.get_running_chunks(1) < 1 {
+        let center = self.get_center_chunk();
+        if self.get_running_chunks(MAX_RUNNING_CHUNKS) < MAX_RUNNING_CHUNKS  && false {
             'outer: while changed {
                 changed = false;
                 let mut new_fill = fill.clone();
@@ -459,7 +564,7 @@ impl State {
                                     if x+offset[0] > -1 && x+offset[0] < fill_size && y+offset[1] > -1 && y+offset[1] < fill_size && z+offset[2] > -1 && z+offset[2] < fill_size {
                                         if fill[((x+offset[0])*fill_size*fill_size + (y+offset[1])*fill_size + z+offset[2]) as usize] == 0 {
                                             new_fill[((x+offset[0])*fill_size*fill_size + (y+offset[1])*fill_size + z+offset[2]) as usize] = 1;
-                                            let real_chunk_pos = [x-RENDER_DIST, y-RENDER_DIST, z-RENDER_DIST];
+                                            let real_chunk_pos = [x-RENDER_DIST+center[0], y-RENDER_DIST+center[1], z-RENDER_DIST+center[2]];
                                             if !self.worlds.contains_key(&real_chunk_pos) {
                                                 //println!("{:?}", real_chunk_pos);
                                                 self.worlds.insert(real_chunk_pos, World::world(&self.generator, real_chunk_pos[0]*CHUNK_SIZE as i32, real_chunk_pos[1]*CHUNK_SIZE as i32, real_chunk_pos[2]*CHUNK_SIZE as i32, &self.device, false));
@@ -477,11 +582,20 @@ impl State {
                 fill = new_fill;
             }
         }
+        let mut to_remove = Vec::new();
+        for pos in self.worlds.keys().into_iter() {
+            if (((pos[0]-center[0]).pow(2) + (pos[1]-center[1]).pow(2) + (pos[2]-center[2]).pow(2)) as f32).sqrt() as i32 >= RENDER_DIST as i32 +2 {
+                to_remove.push(pos.clone());
+            }
+        }
+        for pos in to_remove {
+            self.worlds.remove(&pos).unwrap().destroy();
+        }
         //self.world.load_around([self.camera.eye.x, self.camera.eye.y, self.camera.eye.z], self.first_frame, &self.device);
         self.first_frame = false;
     }
 
-    fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
+    fn render(&mut self, delta_time: u128) -> Result<(), wgpu::SurfaceError> {
         let output = self.surface.get_current_texture()?;
         let view = output
             .texture
@@ -519,29 +633,41 @@ impl State {
 
             render_pass.set_pipeline(&self.render_pipeline);
             //render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]); // NEW!
-            render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
+            render_pass.set_bind_group(0, &self.texture_bind_group, &[]);
+            render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
             //let blocks = self.world.blocks.as_ref();
             //let blocks2 = self.world2.blocks.as_ref();
+            render_pass.set_vertex_buffer(0, self.blocks.vertex_buffer.slice(..));
+            render_pass.set_index_buffer(self.blocks.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+            let mut indices_drawn = 0;
             for i in 0..64 {
-                //println!("buffer {} has length {}", i, self.block_ind[i].num_instances);
-                /*if self.world.blocks.is_some() {
-                    render_pass.set_vertex_buffer(0, self.blocks[i].vertex_buffer.slice(..));
-                    render_pass.set_vertex_buffer(1, blocks.unwrap()[i].instance_buffer.slice(..));
-                    render_pass.set_index_buffer(self.blocks[i].index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-                    render_pass.draw_indexed(0..self.blocks[i].num_indices, 0, 0..blocks.unwrap()[i].num_instances as u32);
-                }*/
+                let indices_to_draw = block::number_to_bits(i).iter().filter(|&n| *n == true).count() as u32 * 6;
                 for world in self.worlds.values().into_iter() {
                     if world.blocks.is_some() {
-                        render_pass.set_vertex_buffer(0, self.blocks[i].vertex_buffer.slice(..));
-                        render_pass.set_vertex_buffer(1, world.blocks.as_ref().unwrap()[i].instance_buffer.slice(..));
-                        render_pass.set_index_buffer(self.blocks[i].index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-                        render_pass.draw_indexed(0..self.blocks[i].num_indices, 0, 0..world.blocks.as_ref().unwrap()[i].num_instances as u32);
+                        render_pass.set_vertex_buffer(1, world.blocks.as_ref().unwrap()[i as usize].instance_buffer.slice(..));
+                        render_pass.draw_indexed(indices_drawn..indices_drawn+indices_to_draw, 0, 0..world.blocks.as_ref().unwrap()[i as usize].num_instances as u32);
                     }
                 }
+                indices_drawn += indices_to_draw;
             }
         }
+        let running_chunks_text = format!("{} Running Chunks\nChunk: {:?}\nReal Position {:?}\nVelocity {:?}\nDelta Time {:?}", self.get_running_chunks(MAX_RUNNING_CHUNKS), self.get_center_chunk(), self.camera.eye, self.camera_controller.velocity, delta_time);
+        let mut color = [0.0, 0.0, 0.0, 1.0];
+        if delta_time <= 18 {
+            color = [0.0, 1.0, 0.0, 1.0];
+        } else if delta_time >= 25 {
+            color = [1.0, 0.0, 0.0, 1.0];
+        }
+        let section = Section::default()
+            .add_text(Text::new(running_chunks_text.as_str()).with_scale(50.0).with_color(color))
+            .with_layout(Layout::default().h_align(HorizontalAlign::Left));
+        self.text_brush.queue(&section);
+
+        let text_buffer = self.text_brush.draw(&self.device, &view, &self.queue);
+
+        self.queue.submit([encoder.finish(), text_buffer]);
+
         // submit will accept anything that implements IntoIter
-        self.queue.submit(std::iter::once(encoder.finish()));
         output.present();
         Ok(())
     }
@@ -600,7 +726,7 @@ pub async fn run() {
 
     let mut state = State::new(&window).await;
     let _cp = window.set_cursor_position(winit::dpi::PhysicalPosition::new(state.config.width/2, state.config.height/2));
-    window.set_cursor_visible(false);
+    //window.set_cursor_visible(false);
 
     event_loop.run(move |event, _, control_flow| {
         match event {
@@ -662,10 +788,19 @@ pub async fn run() {
             }
             Event::RedrawRequested(window_id) if window_id == window.id() => {
                 //let time = SystemTime::now();
-                state.update();
+                let mut delta_time = match state.time.elapsed() {
+                    Ok(dur) => dur.as_millis(),
+                    Err(_e) => 15,
+                };
+                state.time = SystemTime::now();
+                delta_time = match state.time.elapsed() {
+                    Ok(dur) => delta_time-dur.as_millis(),
+                    Err(_e) => 15,
+                };
+                state.update(delta_time);
                 //println!("took {:?} to update", SystemTime::now().duration_since(time));
                 //let time = SystemTime::now();
-                match state.render() {
+                match state.render(delta_time) {
                     Ok(_) => {}
                     // Reconfigure the surface if it's lost or outdated
                     Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {

@@ -10,7 +10,6 @@ use bitvec::prelude::*;
 use std::collections::HashMap;
 use std::sync::mpsc::Receiver;
 use cgmath::{Vector3, MetricSpace};
-use wasm_timer::SystemTime;
 use std::thread;
 use std::sync::mpsc::channel;
 
@@ -21,32 +20,78 @@ use mockall::*;
 
 pub const BLOCK_SIZE: f32 = 1.0;
 pub const CHUNK_SIZE: usize = 100;
-pub const RENDER_DIST: i32 = 2;
+pub const RENDER_DIST: i32 = 0;
+pub const DIRECTIONS: [[i32; 3]; 6] = [[1,0,0], [-1,0,0], [0,1,0], [0,-1,0], [0,0,1], [0,0,-1]];
 
 //holds the basic model of a cube, all sides shown
 pub const VERTICES: &[Vertex] = &[
-    Vertex {position: [0.0, 0.0, 0.0]},
-    Vertex {position: [1.0, 0.0, 0.0]},
-    Vertex {position: [1.0, 1.0, 0.0]},
-    Vertex {position: [0.0, 1.0, 0.0]},
-    Vertex {position: [0.0, 0.0, 1.0]},
-    Vertex {position: [0.0, 1.0, 1.0]},
-    Vertex {position: [1.0, 1.0, 1.0]},
-    Vertex {position: [1.0, 0.0, 1.0]},
+    //-z
+    Vertex {position: [0.0, 0.0, 0.0], normal: [0.0,0.0,-1.0], texture_coords: [1.0, 1.0]},
+    Vertex {position: [1.0, 1.0, 0.0], normal: [0.0,0.0,-1.0], texture_coords: [0.0, 0.0]},
+    Vertex {position: [1.0, 0.0, 0.0], normal: [0.0,0.0,-1.0], texture_coords: [0.0, 1.0]},
+
+    Vertex {position: [0.0, 0.0, 0.0], normal: [0.0,0.0,-1.0], texture_coords: [1.0, 1.0]},
+    Vertex {position: [0.0, 1.0, 0.0], normal: [0.0,0.0,-1.0], texture_coords: [1.0, 0.0]},
+    Vertex {position: [1.0, 1.0, 0.0], normal: [0.0,0.0,-1.0], texture_coords: [0.0, 0.0]},
+
+    //+z
+    Vertex {position: [1.0, 0.0, 1.0], normal: [0.0,0.0,1.0], texture_coords: [1.0, 1.0]},
+    Vertex {position: [1.0, 1.0, 1.0], normal: [0.0,0.0,1.0], texture_coords: [1.0, 0.0]},
+    Vertex {position: [0.0, 0.0, 1.0], normal: [0.0,0.0,1.0], texture_coords: [0.0, 1.0]},
+
+    Vertex {position: [1.0, 1.0, 1.0], normal: [0.0,0.0,1.0], texture_coords: [1.0, 0.0]},
+    Vertex {position: [0.0, 1.0, 1.0], normal: [0.0,0.0,1.0], texture_coords: [0.0, 0.0]},
+    Vertex {position: [0.0, 0.0, 1.0], normal: [0.0,0.0,1.0], texture_coords: [0.0, 1.0]},
+
+    //-x
+    Vertex {position: [0.0, 0.0, 1.0], normal: [-1.0,0.0,0.0], texture_coords: [1.0, 1.0]},
+    Vertex {position: [0.0, 1.0, 0.0], normal: [-1.0,0.0,0.0], texture_coords: [0.0, 0.0]},
+    Vertex {position: [0.0, 0.0, 0.0], normal: [-1.0,0.0,0.0], texture_coords: [0.0, 1.0]},
+
+    Vertex {position: [0.0, 0.0, 1.0], normal: [-1.0,0.0,0.0], texture_coords: [1.0, 1.0]},
+    Vertex {position: [0.0, 1.0, 1.0], normal: [-1.0,0.0,0.0], texture_coords: [1.0, 0.0]},
+    Vertex {position: [0.0, 1.0, 0.0], normal: [-1.0,0.0,0.0], texture_coords: [0.0, 0.0]},
+
+    //+x
+    Vertex {position: [1.0, 0.0, 0.0], normal: [1.0,0.0,0.0], texture_coords: [1.0, 1.0]},
+    Vertex {position: [1.0, 1.0, 1.0], normal: [1.0,0.0,0.0], texture_coords: [0.0, 0.0]},
+    Vertex {position: [1.0, 0.0, 1.0], normal: [1.0,0.0,0.0], texture_coords: [0.0, 1.0]},
+
+    Vertex {position: [1.0, 0.0, 0.0], normal: [1.0,0.0,0.0], texture_coords: [1.0, 1.0]},
+    Vertex {position: [1.0, 1.0, 0.0], normal: [1.0,0.0,0.0], texture_coords: [1.0, 0.0]},
+    Vertex {position: [1.0, 1.0, 1.0], normal: [1.0,0.0,0.0], texture_coords: [0.0, 0.0]},
+    
+    //-y
+    Vertex {position: [1.0, 0.0, 1.0], normal: [0.0,-1.0,0.0], texture_coords: [0.0, 1.0]},
+    Vertex {position: [0.0, 0.0, 0.0], normal: [0.0,-1.0,0.0], texture_coords: [1.0, 0.0]},
+    Vertex {position: [1.0, 0.0, 0.0], normal: [0.0,-1.0,0.0], texture_coords: [1.0, 1.0]},
+
+    Vertex {position: [0.0, 0.0, 1.0], normal: [0.0,-1.0,0.0], texture_coords: [0.0, 0.0]},
+    Vertex {position: [0.0, 0.0, 0.0], normal: [0.0,-1.0,0.0], texture_coords: [1.0, 0.0]},
+    Vertex {position: [1.0, 0.0, 1.0], normal: [0.0,-1.0,0.0], texture_coords: [0.0, 1.0]},
+
+    //+y
+    Vertex {position: [0.0, 1.0, 0.0], normal: [0.0,1.0,0.0], texture_coords: [1.0, 1.0]},
+    Vertex {position: [1.0, 1.0, 1.0], normal: [0.0,1.0,0.0], texture_coords: [0.0, 0.0]},
+    Vertex {position: [1.0, 1.0, 0.0], normal: [0.0,1.0,0.0], texture_coords: [0.0, 1.0]},
+
+    Vertex {position: [0.0, 1.0, 0.0], normal: [0.0,1.0,0.0], texture_coords: [1.0, 1.0]},
+    Vertex {position: [0.0, 1.0, 1.0], normal: [0.0,1.0,0.0], texture_coords: [1.0, 0.0]},
+    Vertex {position: [1.0, 1.0, 1.0], normal: [0.0,1.0,0.0], texture_coords: [0.0, 0.0]},
 ];
 const INDICES: &[u16] = &[
-    0, 2, 1, 0, 3, 2,//bottom 
-    7, 6, 4, 6, 5, 4,//top
-    0, 4, 5, 0, 5, 3,//north
-    2, 6, 1, 6, 7, 1,//south
-    7, 4, 0, 1, 7, 0,//west
-    3, 6, 2, 5, 6, 3,//east
+    0, 1, 2, 3, 4, 5,//bottom
+    6, 7, 8, 9, 10, 11,//top
+    12, 13, 14, 15, 16, 17,//north
+    18, 19, 20, 21, 22, 23,//south
+    24, 25, 26, 27, 28, 29,//west
+    30, 31, 32, 33, 34, 35,//east
 ];
 
 pub fn get_vertices(size: f32) -> [Vertex; VERTICES.len()] {
-    let mut new_vertices = [Vertex {position:[0.0,0.0,0.0]}; VERTICES.len()];
+    let mut new_vertices = [Vertex {position:[0.0,0.0,0.0], normal:[0.0,0.0,0.0], texture_coords: [0.0,0.0]}; VERTICES.len()];
     for (i, v) in VERTICES.iter().enumerate() {
-        new_vertices[i] = Vertex{position:[v.position[0]*size, v.position[1]*size, v.position[2]*size]};
+        new_vertices[i] = Vertex{position:[v.position[0]*size, v.position[1]*size, v.position[2]*size], normal: v.normal, texture_coords: v.texture_coords};
     }
     return new_vertices;
 }
@@ -77,21 +122,32 @@ pub struct World {
 #[derive(Clone)]
 pub struct Generator {
     pub surface_noise: Perlin,
+    pub second_surface_noise: Perlin,
     pub cave_noise: Perlin,
     pub seed: u32,
+    pub second_seed: u32,
 }
 
 impl Generator {
     pub fn new() -> Self {
         let mut rng = rand::thread_rng();
         let seed = rng.gen::<u32>();
+        let second_seed = rng.gen::<u32>();
         let surface_noise = Perlin::new(seed);
+        let second_surface_noise = Perlin::new(second_seed);
         let cave_noise = Perlin::new(seed);
         Self {
             surface_noise,
+            second_surface_noise,
             cave_noise,
             seed,
+            second_seed,
         }
+    }
+
+    pub fn height_at(&self, x: f64, z: f64) -> f64{
+        let height = (self.surface_noise.get([x, z])+self.second_surface_noise.get([x/30.0, z/30.0])*4.0)*(self.surface_noise.get([x/100.0, z/100.0]).abs() * 300.0) + 30.0;
+        return height.floor();
     }
 }
 
@@ -110,6 +166,7 @@ impl World {
         solid_blocks.resize(CHUNK_SIZE.pow(3), true);
         let mut block_types: Vec<u8> = Vec::new(); 
         block_types.resize(CHUNK_SIZE.pow(3), 0);
+        let mut rng = rand::thread_rng();
         //let time = SystemTime::now();
         //loops through all blocks and generates them
         for x in 0..CHUNK_SIZE {
@@ -117,18 +174,27 @@ impl World {
                 let exact_x = x as i32 + wx;
                 let exact_z = z as i32 + wz;
                 //the height is only determined by x and z so it is created here and the loop is is in this weird order
-                let height = generator_moved.surface_noise.get([exact_x as f64 / 100.0, exact_z as f64 / 100.0]);
+                let height = generator_moved.height_at(exact_x as f64 / 100.0, exact_z as f64 / 100.0);
                 for y in 0..CHUNK_SIZE {
                     let exact_y = y as i32 + wy;
                     //ground or sky?
                     #[allow(unused_mut)]
-                    let mut solid = (exact_y as f32) < (height+1.0) as f32 *50.0 && generator_moved.cave_noise.get([exact_x as f64/ 30.0, exact_y as f64/ 30.0, exact_z as f64/ 30.0]) < 0.4;
+                    let mut solid = (exact_y as f32) < (height+1.0) as f32 && generator_moved.cave_noise.get([exact_x as f64/ 30.0, exact_y as f64/ 30.0, exact_z as f64/ 30.0]) < 0.4;
                     //is it ten blocks underneath the surface?
-                    if (exact_y as f32 + 10.0) < (height+1.0) as f32 *50.0 {
+                    if (exact_y as f32 + 5.0) < (height+1.0) as f32 {
+                        //sets the block type to be stone block type
+                        block_types[index(x, y, z)] = 2;
+                        let ore_random = generator_moved.second_surface_noise.get([exact_x as f64/ 30.0, exact_y as f64/ 30.0, exact_z as f64/ 30.0]).abs();
+                        if ore_random > 0.4 && ore_random < 0.5 {
+                            if (rng.next_u32() as f32 / u32::MAX as f32) < 0.1 {
+                                block_types[index(x, y, z)] = 4;
+                            }
+                        }
+                    } else if (exact_y as f32 + 1.0) < (height+1.0) as f32 {
                         //solid if in a cave
                         //solid = 
                         //sets the block type to be stone block type
-                        block_types[index(x, y, z)] = 2;
+                        block_types[index(x, y, z)] = 3;
                     } else {
                         //sets the block type to be grass block type
                         block_types[index(x, y, z)]  = 1;
@@ -138,6 +204,29 @@ impl World {
                 }
             }
             //println!("Generating {}%", ((x as f32 +1.0)/size as f32)*100.0);
+        }
+        for _ in 0..50 {
+            let mut pos = [rng.next_u32() as usize %CHUNK_SIZE, rng.next_u32() as usize %CHUNK_SIZE, rng.next_u32() as usize %CHUNK_SIZE];
+            let mut vien_size = 0;
+            while (rng.next_u32() as f32 / u32::MAX as f32) < 0.2 || vien_size < 5 && vien_size <= 10 {
+                if block_types[index(pos[0], pos[1], pos[2])] == 2 && solid_blocks.get(index(pos[0], pos[1], pos[2])).unwrap() == true {
+                    block_types[index(pos[0], pos[1], pos[2])] = 5;
+                    vien_size += 1;
+                }
+                let dir = DIRECTIONS[rng.next_u32() as usize %6];
+                for d in 0..3 {
+                    if dir[d] > 0 {
+                        if pos[d] != CHUNK_SIZE-1 {
+                            pos[d] += dir[d] as usize;
+                        }
+                    }
+                    if dir[d] < 0 {
+                        if pos[d] != 0 {
+                            pos[d] -= dir[d].abs() as usize;
+                        }
+                    }
+                }
+            }
         }
         //let (tx, rx) = channel();
         //loops over every block and instances it
@@ -149,7 +238,7 @@ impl World {
                         let mut sides = [false; 6];
                         let index = index(x, y, z);
                         let block_type = block_types[index];
-                        //castes position to i32 now for easier readability, index takes usize and get_solid/get_sides take i32
+                        //casts position to i32 now for easier readability, index takes usize and get_solid/get_sides take i32
                         let x = x as i32;
                         let y = y as i32;
                         let z = z as i32;
@@ -162,7 +251,8 @@ impl World {
                         if sides != [false; 6] {
                             instances[sides_to_index(sides)].insert([x, y, z],Instance {
                                 position: get_position(exact_x as f32, exact_y as f32, exact_z as f32, BLOCK_SIZE),
-                                color: get_color_random(index.try_into().unwrap(), block_type, 0.5),
+                                color: [1.0,1.0,1.0],//get_color_random(exact_x, exact_y, exact_z, block_type),
+                                texture_offsets: get_texture_offsets(block_type),
                             });
                         }
                     }
@@ -259,19 +349,21 @@ impl World {
         if original_solid == true && solid == true {
             instances[block_index].insert([x, y, z], Instance {
                 position: get_position(x as f32, y as f32, z as f32, BLOCK_SIZE),
-                color: get_color_random(index(x as usize, y as usize, z as usize).try_into().unwrap(), block_type, 0.5),
+                color: [1.0,1.0,1.0],//get_color_random(x+self.pos[0], y+self.pos[1], z+self.pos[2], block_type),
+                texture_offsets: get_texture_offsets(block_type),
             });
         }
         if original_solid == false && solid == true {
 
             instances[block_index].insert([x, y, z], Instance {
                 position: get_position(x as f32, y as f32, z as f32, BLOCK_SIZE),
-                color: get_color_random(index(x as usize, y as usize, z as usize).try_into().unwrap(), block_type, 0.5),
+                color: [1.0,1.0,1.0],//get_color_random(x+self.pos[0], y+self.pos[1], z+self.pos[2], block_type),
+                texture_offsets: get_texture_offsets(block_type),
             });
             update_sides = true;
         }
         if update_sides {
-            for offset in [[1,0,0], [-1,0,0], [0,1,0], [0,-1,0], [0,0,1], [0,0,-1]] {
+            for offset in DIRECTIONS {
                 if *solid_blocks.get(index((x+offset[0]) as usize, (y+offset[1]) as usize, (z+offset[2]) as usize)).unwrap() == false {
                     continue;
                 }
@@ -285,7 +377,8 @@ impl World {
                 instances[side_index].remove(&[x+offset[0], y+offset[1], z+offset[2]]);
                 instances[sides_to_index(new_sides)].insert([x+offset[0], y+offset[1], z+offset[2]], Instance {
                     position: get_position((x+offset[0]+self.pos[0]) as f32, (y+offset[1]+self.pos[1]) as f32, (z+offset[2]+self.pos[2]) as f32, BLOCK_SIZE),
-                    color: get_color_random(index((x+offset[0]) as usize, (y+offset[1]) as usize, (z+offset[2]) as usize).try_into().unwrap(), block_types[index((x+offset[0]) as usize, (y+offset[1]) as usize, (z+offset[2]) as usize)], 0.5),
+                    color: [1.0,1.0,1.0],//get_color_random(x+offset[0], y+offset[1], z+offset[2], block_types[index((x+offset[0]) as usize, (y+offset[1]) as usize, (z+offset[2]) as usize)]),
+                    texture_offsets: get_texture_offsets(block_types[index((x+offset[0]) as usize, (y+offset[1]) as usize, (z+offset[2]) as usize)]),
                 });
             }
         }
@@ -405,6 +498,18 @@ pub fn raycast(start_pos: Vector3<f32>, dir: Vector3<f32>, max_dist: f32, worlds
     return (false, [pos.x as i32, pos.y as i32, pos.z as i32], 0, Vector3::new(0.0,0.0,0.0));
 }
 
+pub fn get_texture_offsets(block_type: u8) -> [[f32; 2]; 6] {
+    //format is -z, +z, -x, +x, -y, +y
+    //special cases
+    if block_type == 0 {
+        return [[0.0,0.0]; 6];
+    }
+    if block_type == 1 {
+        return [[1.0, 0.0],[1.0, 0.0],[1.0, 0.0],[1.0, 0.0], [3.0, 0.0], [0.0, 0.0]];
+    }
+    return [[(block_type) as f32,0.0]; 6];
+}
+
 //returns which sides of the block at a given position are visible
 pub fn get_sides(solid_blocks: &BitVec, x: i32, y: i32, z: i32) -> [bool; 6] {
     [!get_solid(solid_blocks, x, y+1, z), !get_solid(solid_blocks, x, y-1, z), !get_solid(solid_blocks, x+1, y, z), !get_solid(solid_blocks, x-1, y, z), !get_solid(solid_blocks, x, y, z+1), !get_solid(solid_blocks, x, y, z-1)]
@@ -435,20 +540,21 @@ pub fn get_chunk_pos(x: i32, y: i32, z: i32, size: usize) -> ([i32; 3], [i32; 3]
 }
 
 //gets the block color, and adds some random darkness to it
-pub fn get_color_random(index: u64, x: u8, randomness: f32) -> [f32; 3] {
-    let mut rng = rand::rngs::StdRng::seed_from_u64(index);
-    let color_offset = (rng.next_u64() as f32 / u64::MAX as f32)*randomness;
-    let mut color = get_color(x);
-    color[0] *= color_offset;
-    color[1] *= color_offset;
-    color[2] *= color_offset;
+pub fn get_color_random(x: i32, y: i32, z: i32, block_type: u8) -> [f32; 3] {
+    let mut rng = rand::rngs::StdRng::seed_from_u64((x*(CHUNK_SIZE*CHUNK_SIZE) as i32 +y*CHUNK_SIZE as i32 +z) as u64);
+    let color_offset = (rng.next_u32() / (u32::MAX / 4)) as f32 + 1.0;
+    //println!("{}", color_offset);
+    let mut color = get_color(block_type);
+    color[0] /= color_offset;
+    color[1] /= color_offset;
+    color[2] /= color_offset;
     return color;
 }
 
 //gets the color of the block based on the id
 pub fn get_color(x: u8) -> [f32; 3] {
     if x == 1 {
-        return [0.0,1.0,0.0];
+        return [0.0,0.8,0.0];
     }
     if x == 2 {
         return [0.3,0.3,0.3];
@@ -496,14 +602,14 @@ pub fn sides_to_index(sides: [bool; 6]) -> usize {
 }
 
 //creates a mesh of visible sides
-pub fn create_mesh(sides: [bool; 6], device: &dyn DeviceExt) -> model::Model {
+pub fn create_mesh(sides: [bool; 6]) -> Vec<u16> {
     let mut indices: Vec<u16> = Vec::new();
     for i in 0..6 {
         if sides[i] {
             indices.extend_from_slice(&INDICES[i*6..(i+1)*6]);
         }
     }
-    model::Model::new(&get_vertices(BLOCK_SIZE), &indices, device)
+    indices
 }
 
 //returns the bits of a 6 bit number as a boolean array
@@ -523,12 +629,12 @@ pub fn number_to_bits(x: i32) -> [bool; 6] {
 }
 
 //creates all 64 possible cube meshes 
-pub fn create_all_meshes(device: &dyn DeviceExt) -> Vec<model::Model> {
-    let mut meshes = Vec::new();
+pub fn create_all_meshes(device: &dyn DeviceExt) -> model::Model {
+    let mut indices = Vec::new();
     for i in 0..64 {
-        meshes.push(create_mesh(number_to_bits(i), device));
+        indices.extend_from_slice(&create_mesh(number_to_bits(i)));
     }
-    meshes
+    model::Model::new(&get_vertices(BLOCK_SIZE), &indices, device)
 }
 //banana
 // -Meredith
