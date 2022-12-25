@@ -292,12 +292,14 @@ impl CameraController {
 fn move_camera(vec: Vector3<f32>, camera: &mut Camera, worlds: &HashMap<[i32; 3], block::World>) -> bool {
     //return move_camera_x(vec.x, camera, worlds) || move_camera_y(vec.y, camera, worlds) || move_camera_z(vec.z, camera, worlds);
     camera.eye += vec;
-    let self_box = Box {pos: (vec+Vector3::new(-0.4, -0.4, -0.4)).into(), size: [0.8, 1.9, 0.8]};
+    let self_box = Box {pos: camera.eye.into(), size: [0.8, 1.9, 0.8]};
     for (pos, solid) in get_in_block(camera.eye, worlds) {
         println!("{:?} {:?}", pos, solid);
         if solid {
             let block_box = Box {pos: [pos[0] as f32, pos[1] as f32, pos[2] as f32], size: [1.0, 1.0, 1.0]};
+            println!("{:?} {:?}", self_box, block_box);
             let result = colliding_box(&self_box, &block_box);
+            println!("{:?}", result);
             if result.0 {
                 camera.eye -= Vector3::from(result.1);
                 return true;
@@ -342,7 +344,7 @@ fn move_camera_z(z: f32, camera: &mut Camera, worlds: &HashMap<[i32; 3], block::
 
 fn get_in_block(pos: Point3<f32>, worlds: &HashMap<[i32; 3], block::World>) -> HashMap<[i32; 3], bool> {
     if GM == 1 {
-        return HashMap::new();
+        //return HashMap::new();
     }
     let mut positions: HashMap<[i32; 3], bool> = HashMap::new();
     for offset in [Vector3::new(0.4 as f32, 0.4, 0.4), Vector3::new(0.4 as f32, 0.4, -0.4), Vector3::new(-0.4 as f32, 0.4, 0.4), Vector3::new(-0.4 as f32, 0.4, -0.4), Vector3::new(0.4 as f32, -1.5, 0.4), Vector3::new(0.4 as f32, -1.5, -0.4), Vector3::new(-0.4 as f32, -1.5, 0.4), Vector3::new(-0.4 as f32, -1.5, -0.4)] {
@@ -350,16 +352,16 @@ fn get_in_block(pos: Point3<f32>, worlds: &HashMap<[i32; 3], block::World>) -> H
         let world = worlds.get(&world_pos.0);
         if world.is_none() {
             positions.insert([(pos+offset).x as i32, (pos+offset).y as i32, (pos+offset).z as i32], true);
-        }
-        let world = world.unwrap();
-        if world.solid_blocks.is_some() {
-            let solid_blocks = world.solid_blocks.as_ref().unwrap();
-            let block = solid_blocks.get(block::index(world_pos.1[0] as usize, world_pos.1[1] as usize, world_pos.1[2] as usize));
-            if block.is_some() {
-                positions.insert([(pos+offset).x as i32, (pos+offset).y as i32, (pos+offset).z as i32], *block.unwrap());
+        } else {
+            let world = world.unwrap();
+            if world.solid_blocks.is_some() {
+                let solid_blocks = world.solid_blocks.as_ref().unwrap();
+                let block = solid_blocks.get(block::index(world_pos.1[0] as usize, world_pos.1[1] as usize, world_pos.1[2] as usize));
+                if block.is_some() {
+                    positions.insert([(pos+offset).x as i32, (pos+offset).y as i32, (pos+offset).z as i32], *block.unwrap());
+                }
             }
         }
-        
     }
     return positions;
 }

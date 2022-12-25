@@ -20,7 +20,7 @@ use mockall::*;
 
 pub const BLOCK_SIZE: f32 = 1.0;
 pub const CHUNK_SIZE: usize = 100;
-pub const RENDER_DIST: i32 = 0;
+pub const RENDER_DIST: i32 = 1;
 pub const DIRECTIONS: [[i32; 3]; 6] = [[1,0,0], [-1,0,0], [0,1,0], [0,-1,0], [0,0,1], [0,0,-1]];
 
 //holds the basic model of a cube, all sides shown

@@ -18,6 +18,9 @@ pub fn colliding_box(this: &Box, other: &Box) -> (bool, [f32; 3]) {
                 lowest = i;
             }
         }
+        if lowest == 1 {
+            println!("WEEWOO");
+        }
         let mut return_array = [0.0,0.0,0.0];
         return_array[lowest] = -corners[lowest];
         return (colliding, return_array);
@@ -33,6 +36,7 @@ fn sign(x: f32) -> f32 {
     return x/x.abs();
 }
 
+#[derive(Debug)]
 pub struct Box {
     pub pos: [f32; 3],
     pub size: [f32; 3],
