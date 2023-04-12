@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, time::{Duration, SystemTimeError}};
 
 use block::{RENDER_DIST, World, CHUNK_SIZE};
 use cgmath::{Point3, Vector3};
@@ -213,7 +213,7 @@ impl State {
             format: surface.get_preferred_format(&adapter).unwrap(),
             width: size.width,
             height: size.height,
-            present_mode: wgpu::PresentMode::Fifo,
+            present_mode: wgpu::PresentMode::Immediate,
         };
         surface.configure(&device, &config);
         let diffuse_bytes = include_bytes!("textures.png");
@@ -595,7 +595,7 @@ impl State {
         self.first_frame = false;
     }
 
-    fn render(&mut self, delta_time: u128) -> Result<(), wgpu::SurfaceError> {
+    fn render(&mut self, delta_time: u128, update_time: Result<Duration, SystemTimeError>) -> Result<(), wgpu::SurfaceError> {
         let output = self.surface.get_current_texture()?;
         let view = output
             .texture
@@ -651,7 +651,7 @@ impl State {
                 indices_drawn += indices_to_draw;
             }
         }
-        let running_chunks_text = format!("{} Running Chunks\nChunk: {:?}\nReal Position {:?}\nVelocity {:?}\nDelta Time {:?}", self.get_running_chunks(MAX_RUNNING_CHUNKS), self.get_center_chunk(), self.camera.eye, self.camera_controller.velocity, delta_time);
+        let running_chunks_text = format!("{} Running Chunks\nChunk: {:?}\nReal Position {:?}\nVelocity {:?}\nDelta Time {:?}\nUpdate Time {:?}", self.get_running_chunks(MAX_RUNNING_CHUNKS), self.get_center_chunk(), self.camera.eye, self.camera_controller.velocity, delta_time, update_time);
         let mut color = [0.0, 0.0, 0.0, 1.0];
         if delta_time <= 18 {
             color = [0.0, 1.0, 0.0, 1.0];
@@ -788,19 +788,13 @@ pub async fn run() {
             }
             Event::RedrawRequested(window_id) if window_id == window.id() => {
                 //let time = SystemTime::now();
-                let mut delta_time = match state.time.elapsed() {
+                let delta_time = match state.time.elapsed() {
                     Ok(dur) => dur.as_millis(),
                     Err(_e) => 15,
                 };
                 state.time = SystemTime::now();
-                delta_time = match state.time.elapsed() {
-                    Ok(dur) => delta_time-dur.as_millis(),
-                    Err(_e) => 15,
-                };
                 state.update(delta_time);
-                //println!("took {:?} to update", SystemTime::now().duration_since(time));
-                //let time = SystemTime::now();
-                match state.render(delta_time) {
+                match state.render(delta_time, SystemTime::now().duration_since(state.time)) {
                     Ok(_) => {}
                     // Reconfigure the surface if it's lost or outdated
                     Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
