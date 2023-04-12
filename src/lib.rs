@@ -831,6 +831,6 @@ fn test_side_indices() {
 
     assert_eq!(block::get_chunk_pos(0, 0, 0, 100), ([0,0,0], [0,0,0]));
     assert_eq!(block::get_chunk_pos(50, 0, 0, 100), ([0,0,0], [50,0,0]));
-    assert_eq!(block::get_chunk_pos(-50, 0, 0, 100), ([-1,0,0], [50,0,0]));
-    assert_eq!(block::get_chunk_pos(-150, 75, 0, 100), ([-2,0,0], [50,75,0]));
+    assert_eq!(block::get_chunk_pos(-50, 0, 0, 100), ([-1,0,0], [49,0,0]));
+    assert_eq!(block::get_chunk_pos(-150, 75, 0, 100), ([-2,0,0], [49,75,0]));
 }

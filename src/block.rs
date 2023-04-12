@@ -180,6 +180,9 @@ impl World {
                     //ground or sky?
                     #[allow(unused_mut)]
                     let mut solid = (exact_y as f32) < (height+1.0) as f32 && generator_moved.cave_noise.get([exact_x as f64/ 30.0, exact_y as f64/ 30.0, exact_z as f64/ 30.0]) < 0.4;
+                    if x == 50 && y == 50 && z == 50 {
+                        solid = true;
+                    }
                     //is it ten blocks underneath the surface?
                     if (exact_y as f32 + 5.0) < (height+1.0) as f32 {
                         //sets the block type to be stone block type
