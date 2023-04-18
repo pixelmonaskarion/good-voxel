@@ -292,20 +292,11 @@ impl CameraController {
 fn move_camera(vec: Vector3<f32>, camera: &mut Camera, worlds: &HashMap<[i32; 3], block::World>) -> bool {
     //return move_camera_x(vec.x, camera, worlds) || move_camera_y(vec.y, camera, worlds) || move_camera_z(vec.z, camera, worlds);
     camera.eye += vec;
-<<<<<<< HEAD
     let self_box = Box {pos: (camera.eye+Vector3::new(0.0, -0.4, 0.0)).into(), size: [0.8, 1.9, 0.8]};
-=======
-    let self_box = Box {pos: camera.eye.into(), size: [0.8, 1.9, 0.8]};
->>>>>>> 82510d53306726d5110362cd865cf4168fa28d62
     for (pos, solid) in get_in_block(camera.eye, worlds) {
         //println!("{:?} {:?}", pos, solid);
         if solid {
-<<<<<<< HEAD
             let block_box = Box {pos: [pos[0] as f32 + 0.5, pos[1] as f32 + 0.5, pos[2] as f32 + 0.5], size: [1.0, 1.0, 1.0]};
-=======
-            let block_box = Box {pos: [pos[0] as f32, pos[1] as f32, pos[2] as f32], size: [1.0, 1.0, 1.0]};
-            println!("{:?} {:?}", self_box, block_box);
->>>>>>> 82510d53306726d5110362cd865cf4168fa28d62
             let result = colliding_box(&self_box, &block_box);
             println!("{:?}", result);
             if result.0 {
@@ -360,16 +351,6 @@ fn get_in_block(pos: Point3<f32>, worlds: &HashMap<[i32; 3], block::World>) -> H
         let world = worlds.get(&world_pos.0);
         if world.is_none() {
             positions.insert([(pos+offset).x as i32, (pos+offset).y as i32, (pos+offset).z as i32], true);
-<<<<<<< HEAD
-            continue;
-        }
-        let world = world.unwrap();
-        if world.solid_blocks.is_some() {
-            let solid_blocks = world.solid_blocks.as_ref().unwrap();
-            let block = solid_blocks.get(block::index(world_pos.1[0] as usize, world_pos.1[1] as usize, world_pos.1[2] as usize));
-            if block.is_some() {
-                positions.insert([(pos+offset).x as i32, (pos+offset).y as i32, (pos+offset).z as i32], *block.unwrap());
-=======
         } else {
             let world = world.unwrap();
             if world.solid_blocks.is_some() {
@@ -378,7 +359,6 @@ fn get_in_block(pos: Point3<f32>, worlds: &HashMap<[i32; 3], block::World>) -> H
                 if block.is_some() {
                     positions.insert([(pos+offset).x as i32, (pos+offset).y as i32, (pos+offset).z as i32], *block.unwrap());
                 }
->>>>>>> 82510d53306726d5110362cd865cf4168fa28d62
             }
         }
     }
