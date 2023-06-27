@@ -86,7 +86,7 @@ pub struct CameraController {
 impl CameraController {
     pub fn new(mut speed: f32) -> Self {
         if GM == 1 {
-            speed = speed;//*5.0;
+            speed = speed*5.0;
         }
         Self {
             speed,
@@ -292,19 +292,23 @@ impl CameraController {
 fn move_camera(vec: Vector3<f32>, camera: &mut Camera, worlds: &HashMap<[i32; 3], block::World>) -> bool {
     //return move_camera_x(vec.x, camera, worlds) || move_camera_y(vec.y, camera, worlds) || move_camera_z(vec.z, camera, worlds);
     camera.eye += vec;
-    let self_box = Box {pos: (camera.eye+Vector3::new(0.0, -0.4, 0.0)).into(), size: [0.8, 1.9, 0.8]};
-    for (pos, solid) in get_in_block(camera.eye, worlds) {
-        //println!("{:?} {:?}", pos, solid);
-        if solid {
-            let block_box = Box {pos: [pos[0] as f32 + 0.5, pos[1] as f32 + 0.5, pos[2] as f32 + 0.5], size: [1.0, 1.0, 1.0]};
-            let result = colliding_box(&self_box, &block_box);
-            println!("{:?}", result);
-            if result.0 {
-                camera.eye -= Vector3::from(result.1);
-                return true;
-            }
-        }
-    }
+
+    //COLLISIONS
+
+    // let self_box = Box {pos: (camera.eye+Vector3::new(0.0, -0.4, 0.0)).into(), size: [0.8, 1.9, 0.8]};
+    // for (pos, solid) in get_in_block(camera.eye, worlds) {
+    //     //println!("{:?} {:?}", pos, solid);
+    //     if solid {
+    //         let block_box = Box {pos: [pos[0] as f32 + 0.5, pos[1] as f32 + 0.5, pos[2] as f32 + 0.5], size: [1.0, 1.0, 1.0]};
+    //         let result = colliding_box(&self_box, &block_box);
+    //         println!("{:?}", result);
+    //         if result.0 {
+    //             camera.eye -= Vector3::from(result.1);
+    //             return true;
+    //         }
+    //     }
+    // }
+    
     return false;
 }
 

@@ -21,6 +21,9 @@ mod texture;
 mod model;
 mod block;
 mod collisions;
+mod terrain {
+    pub mod height_map;
+}
 use camera::*;
 
 pub const MAX_RUNNING_CHUNKS: i32 = 5;
@@ -532,56 +535,59 @@ impl State {
         for world in &mut self.worlds {
             world.1.try_finish(&self.device);
         }
-        /*'first: for x in -RENDER_DIST..RENDER_DIST+1 {
-            for y in -RENDER_DIST..RENDER_DIST+1 {
-                for z in -RENDER_DIST..RENDER_DIST+1 {
-                    if !self.worlds.contains_key(&[x, y, z]) {
-                        if self.get_running_chunks(5) < 5 {
-                            self.worlds.insert([x, y, z], World::world(&self.generator, x, y, z, &self.device, false));
-                        } else {
-                            break 'first;
-                        }
-                    }
-                }
-            }
-        }*/
-        let mut fill: Vec<i32> = Vec::new();
-        let fill_size = RENDER_DIST*2+1;
-        fill.resize(fill_size.pow(3) as usize, 0);
-        //should set the center to 1
-        fill[(RENDER_DIST*fill_size*fill_size + RENDER_DIST*fill_size + RENDER_DIST) as usize] = 1;
-        let mut changed = true;
+        // let mut fill: Vec<i32> = Vec::new();
+        // let fill_size = RENDER_DIST*2+1;
+        // fill.resize(fill_size.pow(3) as usize, 0);
+        // //should set the center to 1
+        // fill[(RENDER_DIST*fill_size*fill_size + RENDER_DIST*fill_size + RENDER_DIST) as usize] = 1;
+        // let mut changed = true;
+        // if self.get_running_chunks(MAX_RUNNING_CHUNKS) < MAX_RUNNING_CHUNKS  && false {
+        //     'outer: while changed {
+        //         changed = false;
+        //         let mut new_fill = fill.clone();
+        //         for x in 0..fill_size {
+        //             for y in 0..fill_size {
+        //                 for z in 0..fill_size {
+        //                     if fill[(x*fill_size*fill_size + y*fill_size + z) as usize] == 1 {
+        //                         for offset in [[1,0,0], [-1,0,0], [0,-1,0], [0,1,0], [0,0,-1], [0,0,1]] {
+        //                             if x+offset[0] > -1 && x+offset[0] < fill_size && y+offset[1] > -1 && y+offset[1] < fill_size && z+offset[2] > -1 && z+offset[2] < fill_size {
+        //                                 if fill[((x+offset[0])*fill_size*fill_size + (y+offset[1])*fill_size + z+offset[2]) as usize] == 0 {
+        //                                     new_fill[((x+offset[0])*fill_size*fill_size + (y+offset[1])*fill_size + z+offset[2]) as usize] = 1;
+        //                                     let real_chunk_pos = [x-RENDER_DIST+center[0], y-RENDER_DIST+center[1], z-RENDER_DIST+center[2]];
+        //                                     if !self.worlds.contains_key(&real_chunk_pos) {
+        //                                         //println!("{:?}", real_chunk_pos);
+        //                                         self.worlds.insert(real_chunk_pos, World::world(&self.generator, real_chunk_pos[0]*CHUNK_SIZE as i32, real_chunk_pos[1]*CHUNK_SIZE as i32, real_chunk_pos[2]*CHUNK_SIZE as i32, &self.device, false));
+        //                                         break 'outer;
+        //                                     }
+        //                                 }
+        //                             }
+        //                         }
+        //                         new_fill[(x*fill_size*fill_size + y*fill_size + z) as usize] = 2;
+        //                         changed = true;
+        //                     }
+        //                 }
+        //             }
+        //         }
+        //         fill = new_fill;
+        //     }
+        // }
         let center = self.get_center_chunk();
-        if self.get_running_chunks(MAX_RUNNING_CHUNKS) < MAX_RUNNING_CHUNKS  && false {
-            'outer: while changed {
-                changed = false;
-                let mut new_fill = fill.clone();
-                for x in 0..fill_size {
-                    for y in 0..fill_size {
-                        for z in 0..fill_size {
-                            if fill[(x*fill_size*fill_size + y*fill_size + z) as usize] == 1 {
-                                for offset in [[1,0,0], [-1,0,0], [0,-1,0], [0,1,0], [0,0,-1], [0,0,1]] {
-                                    if x+offset[0] > -1 && x+offset[0] < fill_size && y+offset[1] > -1 && y+offset[1] < fill_size && z+offset[2] > -1 && z+offset[2] < fill_size {
-                                        if fill[((x+offset[0])*fill_size*fill_size + (y+offset[1])*fill_size + z+offset[2]) as usize] == 0 {
-                                            new_fill[((x+offset[0])*fill_size*fill_size + (y+offset[1])*fill_size + z+offset[2]) as usize] = 1;
-                                            let real_chunk_pos = [x-RENDER_DIST+center[0], y-RENDER_DIST+center[1], z-RENDER_DIST+center[2]];
-                                            if !self.worlds.contains_key(&real_chunk_pos) {
-                                                //println!("{:?}", real_chunk_pos);
-                                                self.worlds.insert(real_chunk_pos, World::world(&self.generator, real_chunk_pos[0]*CHUNK_SIZE as i32, real_chunk_pos[1]*CHUNK_SIZE as i32, real_chunk_pos[2]*CHUNK_SIZE as i32, &self.device, false));
-                                                break 'outer;
-                                            }
-                                        }
-                                    }
-                                }
-                                new_fill[(x*fill_size*fill_size + y*fill_size + z) as usize] = 2;
-                                changed = true;
-                            }
-                        }
-                    }
-                }
-                fill = new_fill;
+
+        let mut fill = Vec::new();
+        fill.push(center);
+        while !fill.is_empty() {
+            if self.get_running_chunks(MAX_RUNNING_CHUNKS) >= MAX_RUNNING_CHUNKS {
+                break;
             }
+            if !self.worlds.contains_key(&fill[0]) {
+                self.worlds.insert(fill[0], World::world(&self.generator, fill[0][0]*CHUNK_SIZE as i32, fill[0][1]*CHUNK_SIZE as i32, fill[0][2]*CHUNK_SIZE as i32, &self.device, false));
+            }
+            for offset in [[1,0,0], [-1,0,0], [0,-1,0], [0,1,0], [0,0,-1], [0,0,1]] {
+                fill.push([offset[0]+fill[0][0], offset[1]+fill[0][1], offset[2]+fill[0][2]]);
+            }
+            fill.remove(0);
         }
+
         let mut to_remove = Vec::new();
         for pos in self.worlds.keys().into_iter() {
             if (((pos[0]-center[0]).pow(2) + (pos[1]-center[1]).pow(2) + (pos[2]-center[2]).pow(2)) as f32).sqrt() as i32 >= RENDER_DIST as i32 +2 {
@@ -591,7 +597,6 @@ impl State {
         for pos in to_remove {
             self.worlds.remove(&pos).unwrap().destroy();
         }
-        //self.world.load_around([self.camera.eye.x, self.camera.eye.y, self.camera.eye.z], self.first_frame, &self.device);
         self.first_frame = false;
     }
 
@@ -644,8 +649,10 @@ impl State {
                 let indices_to_draw = block::number_to_bits(i).iter().filter(|&n| *n == true).count() as u32 * 6;
                 for world in self.worlds.values().into_iter() {
                     if world.blocks.is_some() {
-                        render_pass.set_vertex_buffer(1, world.blocks.as_ref().unwrap()[i as usize].instance_buffer.slice(..));
-                        render_pass.draw_indexed(indices_drawn..indices_drawn+indices_to_draw, 0, 0..world.blocks.as_ref().unwrap()[i as usize].num_instances as u32);
+                        if world.blocks.as_ref().unwrap()[i as usize].num_instances > 0 {
+                            render_pass.set_vertex_buffer(1, world.blocks.as_ref().unwrap()[i as usize].instance_buffer.slice(..));
+                            render_pass.draw_indexed(indices_drawn..indices_drawn+indices_to_draw, 0, 0..world.blocks.as_ref().unwrap()[i as usize].num_instances as u32);
+                        }
                     }
                 }
                 indices_drawn += indices_to_draw;

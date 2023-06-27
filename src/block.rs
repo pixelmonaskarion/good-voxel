@@ -4,6 +4,7 @@ use crate::model;
 use cgmath::InnerSpace;
 use noise::NoiseFn;
 use noise::Perlin;
+use wasm_timer::SystemTime;
 use wgpu::util::DeviceExt;
 use rand::prelude::*;
 use bitvec::prelude::*;
@@ -20,7 +21,7 @@ use mockall::*;
 
 pub const BLOCK_SIZE: f32 = 1.0;
 pub const CHUNK_SIZE: usize = 100;
-pub const RENDER_DIST: i32 = 1;
+pub const RENDER_DIST: i32 = 5;
 pub const DIRECTIONS: [[i32; 3]; 6] = [[1,0,0], [-1,0,0], [0,1,0], [0,-1,0], [0,0,1], [0,0,-1]];
 
 //holds the basic model of a cube, all sides shown
@@ -146,7 +147,7 @@ impl Generator {
     }
 
     pub fn height_at(&self, x: f64, z: f64) -> f64{
-        let height = (self.surface_noise.get([x, z])+self.second_surface_noise.get([x/30.0, z/30.0])*4.0)*(self.surface_noise.get([x/100.0, z/100.0]).abs() * 300.0) + 30.0;
+        let height = (self.surface_noise.get([x, z])+self.second_surface_noise.get([x/30.0, z/30.0])*40.0)*(self.surface_noise.get([x/100.0, z/100.0]).abs() * 300.0) + 30.0;
         return height.floor();
     }
 }
@@ -167,7 +168,7 @@ impl World {
         let mut block_types: Vec<u8> = Vec::new(); 
         block_types.resize(CHUNK_SIZE.pow(3), 0);
         let mut rng = rand::thread_rng();
-        //let time = SystemTime::now();
+        let mut time = SystemTime::now();
         //loops through all blocks and generates them
         for x in 0..CHUNK_SIZE {
             for z in 0..CHUNK_SIZE {
@@ -180,9 +181,6 @@ impl World {
                     //ground or sky?
                     #[allow(unused_mut)]
                     let mut solid = (exact_y as f32) < (height+1.0) as f32 && generator_moved.cave_noise.get([exact_x as f64/ 30.0, exact_y as f64/ 30.0, exact_z as f64/ 30.0]) < 0.4;
-                    if x == 50 && y == 50 && z == 50 {
-                        solid = true;
-                    }
                     //is it ten blocks underneath the surface?
                     if (exact_y as f32 + 5.0) < (height+1.0) as f32 {
                         //sets the block type to be stone block type
@@ -231,39 +229,40 @@ impl World {
                 }
             }
         }
+
+        println!("Generation took {:?}", SystemTime::now().duration_since(time));
+        time = SystemTime::now();
         //let (tx, rx) = channel();
         //loops over every block and instances it
         for x in 0..CHUNK_SIZE {
-            //thread::spawn(move|| {
-                for y in 0..CHUNK_SIZE {
-                    for z in 0..CHUNK_SIZE {
-                        //init sides
-                        let mut sides = [false; 6];
-                        let index = index(x, y, z);
-                        let block_type = block_types[index];
-                        //casts position to i32 now for easier readability, index takes usize and get_solid/get_sides take i32
-                        let x = x as i32;
-                        let y = y as i32;
-                        let z = z as i32;
-                        let exact_x = x + wx;
-                        let exact_z = z + wz;
-                        let exact_y = y + wy;
-                        if get_solid(&mut solid_blocks, x, y, z) {
-                            sides = get_sides(&solid_blocks, x, y, z);
-                        }
-                        if sides != [false; 6] {
-                            instances[sides_to_index(sides)].insert([x, y, z],Instance {
-                                position: get_position(exact_x as f32, exact_y as f32, exact_z as f32, BLOCK_SIZE),
-                                color: [1.0,1.0,1.0],//get_color_random(exact_x, exact_y, exact_z, block_type),
-                                texture_offsets: get_texture_offsets(block_type),
-                            });
-                        }
+            for y in 0..CHUNK_SIZE {
+                for z in 0..CHUNK_SIZE {
+                    //init sides
+                    let mut sides = [false; 6];
+                    let index = index(x, y, z);
+                    let block_type = block_types[index];
+                    //casts position to i32 now for easier readability, index takes usize and get_solid/get_sides take i32
+                    let x = x as i32;
+                    let y = y as i32;
+                    let z = z as i32;
+                    let exact_x = x + wx;
+                    let exact_z = z + wz;
+                    let exact_y = y + wy;
+                    if get_solid(&mut solid_blocks, x, y, z) {
+                        sides = get_sides(&solid_blocks, x, y, z);
+                    }
+                    if sides != [false; 6] {
+                        instances[sides_to_index(sides)].insert([x, y, z],Instance {
+                            position: get_position(exact_x as f32, exact_y as f32, exact_z as f32, BLOCK_SIZE),
+                            color: [1.0,1.0,1.0],//get_color_random(exact_x, exact_y, exact_z, block_type),
+                            texture_offsets: get_texture_offsets(block_type),
+                        });
                     }
                 }
-            //});
+            }
             //println!("Instancing {}%", ((x as f32 +1.0)/size as f32)*100.0);
         }
-        //println!("took {:?}", SystemTime::now().duration_since(time));
+        println!("Instancing took {:?}", SystemTime::now().duration_since(time));
         let _result = tx.send((instances, solid_blocks, block_types));
         });
         if synchronous {
