@@ -191,7 +191,7 @@ impl CameraController {
         self.sky -= y/500.0;
     }
 
-    pub fn update_camera(&mut self, camera: &mut Camera, worlds: &HashMap<[i32; 3], block::World>, delta_time: f32) {
+    pub fn update_camera(&mut self, camera: &mut Camera, worlds: &HashMap<[i32; 3], block::Chunk>, delta_time: f32) {
         if self.right_pressed {
             self.ground += 10.0*self.speed*delta_time * std::f32::consts::PI/180.0;
         }
@@ -289,7 +289,7 @@ impl CameraController {
     }
     
 }
-fn move_camera(vec: Vector3<f32>, camera: &mut Camera, worlds: &HashMap<[i32; 3], block::World>) -> bool {
+fn move_camera(vec: Vector3<f32>, camera: &mut Camera, worlds: &HashMap<[i32; 3], block::Chunk>) -> bool {
     //return move_camera_x(vec.x, camera, worlds) || move_camera_y(vec.y, camera, worlds) || move_camera_z(vec.z, camera, worlds);
     camera.eye += vec;
 
@@ -345,7 +345,7 @@ fn move_camera_z(z: f32, camera: &mut Camera, worlds: &HashMap<[i32; 3], block::
     return collided;
 }*/
 
-fn get_in_block(pos: Point3<f32>, worlds: &HashMap<[i32; 3], block::World>) -> HashMap<[i32; 3], bool> {
+fn get_in_block(pos: Point3<f32>, worlds: &HashMap<[i32; 3], block::Chunk>) -> HashMap<[i32; 3], bool> {
     if GM == 1 {
         //return HashMap::new();
     }

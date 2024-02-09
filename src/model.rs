@@ -1,6 +1,7 @@
 use wgpu::util::DeviceExt;
 use crate::Vertex;
 
+#[derive(Debug)]
 pub struct Model {
     pub vertex_buffer: wgpu::Buffer,
     pub num_vertices: u32,

@@ -1,7 +1,7 @@
 use std::{collections::HashMap, time::{Duration, SystemTimeError}};
 
-use block::{RENDER_DIST, World, CHUNK_SIZE};
-use cgmath::{Point3, Vector3};
+use block::{Chunk, CHUNK_SIZE, DIRECTIONS, RENDER_DIST};
+use cgmath::{num_traits::Pow, Point3, Vector3};
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
@@ -72,9 +72,13 @@ impl Vertex {
             ],
         }
     }
+
+    fn position_as_string(&self) -> String {
+        format!("{}|{}|{}", self.position[0], self.position[1], self.position[2])
+    }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Instance {
     position: cgmath::Vector3<f32>,
     color: [f32; 3],
@@ -166,7 +170,8 @@ struct State {
     blocks: model::Model,
     generator: block::Generator,
     //world: block::World,
-    worlds: HashMap<[i32; 3], block::World>,
+    chunks: HashMap<[i32; 3], block::Chunk>,
+    load_order: Vec<[i32; 3]>,
     camera: Camera,
     camera_uniform: CameraUniform,
     camera_buffer: wgpu::Buffer,
@@ -199,7 +204,7 @@ impl State {
         ).await.unwrap();
             let (device, queue) = adapter.request_device(
                 &wgpu::DeviceDescriptor {
-                    features: wgpu::Features::empty(),
+                    features: wgpu::Features::POLYGON_MODE_LINE,
                     // *WebGL doesn't support all of wgpu's features, so if
                     // *we're building for the web we'll have to disable some.
                     limits: if cfg!(target_arch = "wasm32") {
@@ -267,7 +272,7 @@ impl State {
             target: (1.0, 0.0, 0.0).into(),
             up: cgmath::Vector3::unit_y(),
             aspect: config.width as f32 / config.height as f32,
-            fovy: 45.0,
+            fovy: 70.0,
             znear: 0.1,
             zfar: 10000.0,
         };
@@ -373,9 +378,9 @@ impl State {
         let camera_controller = CameraController::new(0.006);
         let blocks = block::create_all_meshes(&device);
         let generator = block::Generator::new();
-        let world = block::World::world(&generator, 0,0,0, &device, true);
+        let world = block::Chunk::new(generator.clone(), &mut HashMap::new(), 0,0,0, [0,0,0], &device, true);
         //let world2 = block::World::world(&generator, 0,world_size as i32 * -1,0,world_size, &device, false);
-        let mut worlds: HashMap<[i32; 3], block::World> = HashMap::new();
+        let mut worlds: HashMap<[i32; 3], block::Chunk> = HashMap::new();
         worlds.insert([0,0,0], world);
         let middle = (CHUNK_SIZE/ 2) as f32 + 0.5;
         camera.eye = Point3::new(middle, 75.0, middle);
@@ -384,6 +389,22 @@ impl State {
         /* .initial_cache_size((1024, 1024))) */ // use this to avoid resizing cache texture
         /* .with_depth_testing(true) */ // enable/disable depth testing
             .build(&device, &config);
+        let mut load_order = Vec::new();
+        let mut fill = Vec::new();
+        let mut seen = Vec::new();
+        fill.push([0_i32,0,0]);
+        while !fill.is_empty() {
+            if (fill[0][0]).abs() < RENDER_DIST && (fill[0][1]).abs() < RENDER_DIST && (fill[0][2]).abs() < RENDER_DIST && !seen.contains(&fill[0]) {
+                load_order.push(fill[0]);
+                for offset in [[1,0,0], [-1,0,0], [0,-1,0], [0,1,0], [0,0,-1], [0,0,1]] {
+                    if !seen.contains(&[offset[0]+fill[0][0], offset[1]+fill[0][1], offset[2]+fill[0][2]]) {
+                        fill.push([offset[0]+fill[0][0], offset[1]+fill[0][1], offset[2]+fill[0][2]]);
+                    }
+                }
+            }
+            seen.push(fill.remove(0));
+        }
+        println!("generated load order! {:?}", load_order);
         Self {
             surface,
             device,
@@ -397,7 +418,7 @@ impl State {
             blocks,
             generator,
             //world,
-            worlds,
+            chunks: worlds,
             camera,
             camera_uniform,
             camera_buffer,
@@ -409,12 +430,13 @@ impl State {
             time,
             first_frame: true,
             last_broken: 0,
+            load_order,
         }
     }
 
     fn get_running_chunks(&self, threshold: i32) -> i32 {
         let mut counter = 0;
-        for world in self.worlds.values().into_iter() {
+        for world in self.chunks.values().into_iter() {
             if !world.finished {
                 counter += 1;
             }
@@ -511,12 +533,14 @@ impl State {
 
     fn update(&mut self, delta_time: u128) {
         self.last_broken += 1;
-        self.camera_controller.update_camera(&mut self.camera, &self.worlds, delta_time as f32);
+        self.camera_controller.update_camera(&mut self.camera, &self.chunks, delta_time as f32);
         if self.camera_controller.left_mouse_pressed && self.last_broken >= 15 {
-            let raycast_result = /*self.worlds.get(&[0,0,0]).unwrap().*/block::raycast(Vector3::new(self.camera.eye.x, self.camera.eye.y, self.camera.eye.z), self.camera_controller.get_forward_vec(), 1000.0, &self.worlds);
+            let raycast_result = /*self.worlds.get(&[0,0,0]).unwrap().*/block::raycast(Vector3::new(self.camera.eye.x, self.camera.eye.y, self.camera.eye.z), self.camera_controller.get_forward_vec(), 1000.0, &self.chunks);
             if raycast_result.0 {
                 let hit_world_pos = block::get_chunk_pos(raycast_result.1[0], raycast_result.1[1], raycast_result.1[2], block::CHUNK_SIZE);
-                self.worlds.get_mut(&hit_world_pos.0).unwrap().change_block(hit_world_pos.1[0], hit_world_pos.1[1], hit_world_pos.1[2], false, 0, &self.device);
+                let mut chunk = self.chunks.remove(&hit_world_pos.0).unwrap();
+                chunk.change_block(&self.chunks, hit_world_pos.1[0], hit_world_pos.1[1], hit_world_pos.1[2], false, 0, &self.device);
+                self.chunks.insert(hit_world_pos.0, chunk);
                 self.last_broken = 0;
             }
         }
@@ -532,9 +556,9 @@ impl State {
             0,
             bytemuck::cast_slice(&[self.camera_uniform]),
         );
-        for world in &mut self.worlds {
-            world.1.try_finish(&self.device);
-        }
+        // for world in &mut self.worlds {
+        //     world.1.try_finish(&self.device);
+        // }
         // let mut fill: Vec<i32> = Vec::new();
         // let fill_size = RENDER_DIST*2+1;
         // fill.resize(fill_size.pow(3) as usize, 0);
@@ -571,31 +595,41 @@ impl State {
         //         fill = new_fill;
         //     }
         // }
+        
         let center = self.get_center_chunk();
-
-        let mut fill = Vec::new();
-        fill.push(center);
-        while !fill.is_empty() {
-            if self.get_running_chunks(MAX_RUNNING_CHUNKS) >= MAX_RUNNING_CHUNKS {
-                break;
+        let mut loaded_this_frame = 0;
+        for chunk in &self.load_order {
+            let chunk_pos = &[chunk[0]+center[0], chunk[1]+center[1], chunk[2]+center[2]];
+            if !self.chunks.contains_key(chunk_pos) {
+                let new_chunk = Chunk::new(self.generator.clone(), &mut self.chunks, chunk_pos[0]*CHUNK_SIZE as i32, chunk_pos[1]*CHUNK_SIZE as i32, chunk_pos[2]*CHUNK_SIZE as i32, *chunk_pos, &self.device, true);
+                let vertices = new_chunk.model.as_ref().unwrap().num_vertices;
+                let any_air = new_chunk.any_air;
+                self.chunks.insert(*chunk_pos, new_chunk);
+                if vertices == 0 && !any_air {
+                    for (i, dir) in DIRECTIONS.iter().enumerate() {
+                        if let Some(mut chunk) = self.chunks.remove(&[dir[0]+chunk_pos[0], dir[1]+chunk_pos[1], dir[2]+chunk_pos[2]]) {
+                            if chunk.neighbor_remesh[i] {
+                                chunk.create_mesh(&self.chunks, true, &self.device);
+                            }
+                            self.chunks.insert([dir[0]+chunk_pos[0], dir[1]+chunk_pos[1], dir[2]+chunk_pos[2]], chunk);
+                        }
+                    }
+                }
+                if loaded_this_frame > 15 || (self.first_frame && (self.chunks.len() as i32) < RENDER_DIST.pow(3)/2) {
+                    break;
+                }
+                loaded_this_frame += 1;
             }
-            if !self.worlds.contains_key(&fill[0]) {
-                self.worlds.insert(fill[0], World::world(&self.generator, fill[0][0]*CHUNK_SIZE as i32, fill[0][1]*CHUNK_SIZE as i32, fill[0][2]*CHUNK_SIZE as i32, &self.device, false));
-            }
-            for offset in [[1,0,0], [-1,0,0], [0,-1,0], [0,1,0], [0,0,-1], [0,0,1]] {
-                fill.push([offset[0]+fill[0][0], offset[1]+fill[0][1], offset[2]+fill[0][2]]);
-            }
-            fill.remove(0);
         }
-
         let mut to_remove = Vec::new();
-        for pos in self.worlds.keys().into_iter() {
-            if (((pos[0]-center[0]).pow(2) + (pos[1]-center[1]).pow(2) + (pos[2]-center[2]).pow(2)) as f32).sqrt() as i32 >= RENDER_DIST as i32 +2 {
+        for pos in self.chunks.keys().into_iter() {
+            let relative_pos = [pos[0]-center[0], pos[1]-center[1], pos[2]-center[2]];
+            if !self.load_order.contains(&relative_pos) {
                 to_remove.push(pos.clone());
             }
         }
         for pos in to_remove {
-            self.worlds.remove(&pos).unwrap().destroy();
+            self.chunks.remove(&pos).unwrap().destroy();
         }
         self.first_frame = false;
     }
@@ -605,6 +639,7 @@ impl State {
         let view = output
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
+        let mut num_calls = 0;
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -640,29 +675,25 @@ impl State {
             //render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]); // NEW!
             render_pass.set_bind_group(0, &self.texture_bind_group, &[]);
             render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
-            //let blocks = self.world.blocks.as_ref();
-            //let blocks2 = self.world2.blocks.as_ref();
-            render_pass.set_vertex_buffer(0, self.blocks.vertex_buffer.slice(..));
-            render_pass.set_index_buffer(self.blocks.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-            let mut indices_drawn = 0;
-            for i in 0..64 {
-                let indices_to_draw = block::number_to_bits(i).iter().filter(|&n| *n == true).count() as u32 * 6;
-                for world in self.worlds.values().into_iter() {
-                    if world.blocks.is_some() {
-                        if world.blocks.as_ref().unwrap()[i as usize].num_instances > 0 {
-                            render_pass.set_vertex_buffer(1, world.blocks.as_ref().unwrap()[i as usize].instance_buffer.slice(..));
-                            render_pass.draw_indexed(indices_drawn..indices_drawn+indices_to_draw, 0, 0..world.blocks.as_ref().unwrap()[i as usize].num_instances as u32);
-                        }
+            
+            for chunk in self.chunks.values().into_iter() {
+                // println!("{:?}", chunk);
+                if let Some(model) = chunk.model.as_ref() {
+                    if model.num_indices > 0 {
+                        render_pass.set_vertex_buffer(0, model.vertex_buffer.slice(..));
+                        render_pass.set_vertex_buffer(1, chunk.instance_buffer.as_ref().unwrap().slice(..));
+                        render_pass.set_index_buffer(model.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+                        render_pass.draw_indexed(0..model.num_indices, 0, 0..1);
+                        num_calls += 1;
                     }
                 }
-                indices_drawn += indices_to_draw;
             }
         }
-        let running_chunks_text = format!("{} Running Chunks\nChunk: {:?}\nReal Position {:?}\nVelocity {:?}\nDelta Time {:?}\nUpdate Time {:?}", self.get_running_chunks(MAX_RUNNING_CHUNKS), self.get_center_chunk(), self.camera.eye, self.camera_controller.velocity, delta_time, update_time);
+        let running_chunks_text = format!("{} Running Chunks\nChunk: {:?}\nReal Position {:?}\nVelocity {:?}\nDelta Time {:?}\nUpdate Time {:?}\nDraw Calls {:?}", self.get_running_chunks(MAX_RUNNING_CHUNKS), self.get_center_chunk(), self.camera.eye, self.camera_controller.velocity, delta_time, update_time, num_calls);
         let mut color = [0.0, 0.0, 0.0, 1.0];
         if delta_time <= 18 {
             color = [0.0, 1.0, 0.0, 1.0];
-        } else if delta_time >= 25 {
+        } else if delta_time >= 33 {
             color = [1.0, 0.0, 0.0, 1.0];
         }
         let section = Section::default()
@@ -732,8 +763,8 @@ pub async fn run() {
     }
 
     let mut state = State::new(&window).await;
-    let _cp = window.set_cursor_position(winit::dpi::PhysicalPosition::new(state.config.width/2, state.config.height/2));
-    //window.set_cursor_visible(false);
+    window.set_cursor_visible(false);
+    let _ = window.set_cursor_grab(true);
 
     event_loop.run(move |event, _, control_flow| {
         match event {
@@ -742,7 +773,6 @@ pub async fn run() {
                 .. // We're not using device_id currently
             } => if true {
                 state.camera_controller.process_mouse(delta.0 as f32, delta.1 as f32);
-                let _cp = window.set_cursor_position(winit::dpi::PhysicalPosition::new(state.config.width/2, state.config.height/2));
             }
             Event::WindowEvent {
                 ref event,
